@@ -1,5 +1,14 @@
 {
   "title": "Shutter Control",
+  "ui": {
+    "components": {
+      "entity": {
+        "entity-picker": {
+          "no_match": "Keine Entitäten gefunden"
+        }
+      }
+    }
+  },
   "config": {
     "step": {
       "user": {

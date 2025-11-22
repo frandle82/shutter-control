@@ -244,25 +244,87 @@ class ShutterOptionsFlow(config_entries.OptionsFlow):
             self._options.update(user_input)
             return self.async_create_entry(title="", data=self._options)
 
-        return self.async_show_form(
-            step_id="init",
-            data_schema=vol.Schema(
+        auto_brightness = bool(self._options.get(CONF_AUTO_BRIGHTNESS, True))
+        auto_sun = bool(self._options.get(CONF_AUTO_SUN, True))
+        auto_ventilate = bool(self._options.get(CONF_AUTO_VENTILATE, True))
+        auto_cold = bool(self._options.get(CONF_AUTO_COLD, False))
+        auto_shading = bool(self._options.get(CONF_AUTO_SHADING, True))
+
+        schema: dict = {
+            vol.Required(CONF_COVERS, default=self._options.get(CONF_COVERS, [])): selector.EntitySelector(
+                selector.EntitySelectorConfig(domain=["cover"], multiple=True)
+            ),
+            vol.Required(CONF_OPEN_POSITION, default=self._options.get(CONF_OPEN_POSITION, DEFAULT_OPEN_POSITION)): int,
+            vol.Required(CONF_CLOSE_POSITION, default=self._options.get(CONF_CLOSE_POSITION, DEFAULT_CLOSE_POSITION)): int,
+            vol.Required(
+                CONF_VENTILATE_POSITION, default=self._options.get(CONF_VENTILATE_POSITION, DEFAULT_VENTILATE_POSITION)
+            ): int,
+            vol.Required(CONF_SHADING_POSITION, default=self._options.get(CONF_SHADING_POSITION, DEFAULT_SHADING_POSITION)): int,
+            vol.Required(
+                CONF_POSITION_TOLERANCE,
+                default=self._options.get(CONF_POSITION_TOLERANCE, DEFAULT_TOLERANCE),
+            ): int,
+            vol.Optional(CONF_WIND_SENSOR, default=self._options.get(CONF_WIND_SENSOR)): selector.EntitySelector(
+                selector.EntitySelectorConfig(domain=["sensor"])
+            ),
+            vol.Optional(
+                CONF_WIND_LIMIT,
+                default=self._options.get(CONF_WIND_LIMIT, DEFAULT_WIND_LIMIT),
+            ): vol.Coerce(float),
+            vol.Optional(CONF_RESIDENT_SENSOR, default=self._options.get(CONF_RESIDENT_SENSOR)): selector.EntitySelector(
+                selector.EntitySelectorConfig(domain=["binary_sensor", "switch"])
+            ),
+            vol.Optional(
+                CONF_TIME_UP_EARLY,
+                default=self._options.get(CONF_TIME_UP_EARLY, "06:00:00"),
+            ): selector.TimeSelector(),
+            vol.Optional(
+                CONF_TIME_UP_LATE,
+                default=self._options.get(CONF_TIME_UP_LATE, "08:00:00"),
+            ): selector.TimeSelector(),
+            vol.Optional(
+                CONF_TIME_UP_EARLY_NON_WORKDAY,
+                default=self._options.get(CONF_TIME_UP_EARLY_NON_WORKDAY, "07:30:00"),
+            ): selector.TimeSelector(),
+            vol.Optional(
+                CONF_TIME_UP_LATE_NON_WORKDAY,
+                default=self._options.get(CONF_TIME_UP_LATE_NON_WORKDAY, "09:30:00"),
+            ): selector.TimeSelector(),
+            vol.Optional(
+                CONF_TIME_DOWN_EARLY,
+                default=self._options.get(CONF_TIME_DOWN_EARLY, "18:00:00"),
+            ): selector.TimeSelector(),
+            vol.Optional(
+                CONF_TIME_DOWN_LATE,
+                default=self._options.get(CONF_TIME_DOWN_LATE, "23:00:00"),
+            ): selector.TimeSelector(),
+            vol.Optional(
+                CONF_TIME_DOWN_EARLY_NON_WORKDAY,
+                default=self._options.get(CONF_TIME_DOWN_EARLY_NON_WORKDAY, "18:30:00"),
+            ): selector.TimeSelector(),
+            vol.Optional(
+                CONF_TIME_DOWN_LATE_NON_WORKDAY,
+                default=self._options.get(CONF_TIME_DOWN_LATE_NON_WORKDAY, "23:30:00"),
+            ): selector.TimeSelector(),
+            vol.Optional(CONF_WORKDAY_SENSOR, default=self._options.get(CONF_WORKDAY_SENSOR)): selector.EntitySelector(
+                selector.EntitySelectorConfig(domain=["binary_sensor", "sensor"])
+            ),
+            vol.Required(CONF_AUTO_UP, default=self._options.get(CONF_AUTO_UP, True)): bool,
+            vol.Required(CONF_AUTO_DOWN, default=self._options.get(CONF_AUTO_DOWN, True)): bool,
+            vol.Required(CONF_AUTO_BRIGHTNESS, default=self._options.get(CONF_AUTO_BRIGHTNESS, True)): bool,
+            vol.Required(CONF_AUTO_SUN, default=self._options.get(CONF_AUTO_SUN, True)): bool,
+            vol.Required(CONF_AUTO_VENTILATE, default=self._options.get(CONF_AUTO_VENTILATE, True)): bool,
+            vol.Required(CONF_AUTO_COLD, default=self._options.get(CONF_AUTO_COLD, False)): bool,
+            vol.Required(CONF_AUTO_SHADING, default=self._options.get(CONF_AUTO_SHADING, True)): bool,
+            vol.Optional(
+                CONF_MANUAL_OVERRIDE_MINUTES,
+                default=self._options.get(CONF_MANUAL_OVERRIDE_MINUTES, DEFAULT_MANUAL_OVERRIDE_MINUTES),
+            ): vol.Coerce(int),
+        }
+
+        if auto_brightness:
+            schema.update(
                 {
-                    vol.Required(CONF_COVERS, default=self._options.get(CONF_COVERS, [])): selector.EntitySelector(
-                        selector.EntitySelectorConfig(domain=["cover"], multiple=True)
-                    ),
-                    vol.Required(CONF_OPEN_POSITION, default=self._options.get(CONF_OPEN_POSITION, DEFAULT_OPEN_POSITION)): int,
-                    vol.Required(CONF_CLOSE_POSITION, default=self._options.get(CONF_CLOSE_POSITION, DEFAULT_CLOSE_POSITION)): int,
-                    vol.Required(
-                        CONF_VENTILATE_POSITION, default=self._options.get(CONF_VENTILATE_POSITION, DEFAULT_VENTILATE_POSITION)
-                    ): int,
-                    vol.Required(
-                        CONF_SHADING_POSITION, default=self._options.get(CONF_SHADING_POSITION, DEFAULT_SHADING_POSITION)
-                    ): int,
-                    vol.Required(
-                        CONF_POSITION_TOLERANCE,
-                        default=self._options.get(CONF_POSITION_TOLERANCE, DEFAULT_TOLERANCE),
-                    ): int,
                     vol.Optional(CONF_BRIGHTNESS_SENSOR, default=self._options.get(CONF_BRIGHTNESS_SENSOR)): selector.EntitySelector(
                         selector.EntitySelectorConfig(domain=["sensor"])
                     ),
@@ -274,18 +336,66 @@ class ShutterOptionsFlow(config_entries.OptionsFlow):
                         CONF_BRIGHTNESS_CLOSE_BELOW,
                         default=self._options.get(CONF_BRIGHTNESS_CLOSE_BELOW, DEFAULT_BRIGHTNESS_CLOSE),
                     ): vol.Coerce(float),
-                    vol.Optional(CONF_SUN_ELEVATION_OPEN, default=self._options.get(CONF_SUN_ELEVATION_OPEN, DEFAULT_SUN_ELEVATION_OPEN)): vol.Coerce(float),
-                    vol.Optional(CONF_SUN_ELEVATION_CLOSE, default=self._options.get(CONF_SUN_ELEVATION_CLOSE, DEFAULT_SUN_ELEVATION_CLOSE)): vol.Coerce(float),
-                    vol.Optional(CONF_SUN_AZIMUTH_START, default=self._options.get(CONF_SUN_AZIMUTH_START, DEFAULT_SHADING_AZIMUTH_START)): vol.Coerce(float),
-                    vol.Optional(CONF_SUN_AZIMUTH_END, default=self._options.get(CONF_SUN_AZIMUTH_END, DEFAULT_SHADING_AZIMUTH_END)): vol.Coerce(float),
-                    vol.Optional(CONF_SUN_ELEVATION_MIN, default=self._options.get(CONF_SUN_ELEVATION_MIN, DEFAULT_SHADING_ELEVATION_MIN)): vol.Coerce(float),
-                    vol.Optional(CONF_SUN_ELEVATION_MAX, default=self._options.get(CONF_SUN_ELEVATION_MAX, DEFAULT_SHADING_ELEVATION_MAX)): vol.Coerce(float),
-                    vol.Optional(CONF_SHADING_BRIGHTNESS_START, default=self._options.get(CONF_SHADING_BRIGHTNESS_START, DEFAULT_SHADING_BRIGHTNESS_START)): vol.Coerce(float),
-                    vol.Optional(CONF_SHADING_BRIGHTNESS_END, default=self._options.get(CONF_SHADING_BRIGHTNESS_END, DEFAULT_SHADING_BRIGHTNESS_END)): vol.Coerce(float),
-                    vol.Optional(CONF_TEMPERATURE_SENSOR_INDOOR, default=self._options.get(CONF_TEMPERATURE_SENSOR_INDOOR)): selector.EntitySelector(
+                }
+            )
+
+        if auto_sun:
+            schema.update(
+                {
+                    vol.Optional(
+                        CONF_SUN_ELEVATION_OPEN,
+                        default=self._options.get(CONF_SUN_ELEVATION_OPEN, DEFAULT_SUN_ELEVATION_OPEN),
+                    ): vol.Coerce(float),
+                    vol.Optional(
+                        CONF_SUN_ELEVATION_CLOSE,
+                        default=self._options.get(CONF_SUN_ELEVATION_CLOSE, DEFAULT_SUN_ELEVATION_CLOSE),
+                    ): vol.Coerce(float),
+                }
+            )
+
+        if auto_shading:
+            schema.update(
+                {
+                    vol.Optional(
+                        CONF_SUN_AZIMUTH_START,
+                        default=self._options.get(CONF_SUN_AZIMUTH_START, DEFAULT_SHADING_AZIMUTH_START),
+                    ): vol.Coerce(float),
+                    vol.Optional(
+                        CONF_SUN_AZIMUTH_END,
+                        default=self._options.get(CONF_SUN_AZIMUTH_END, DEFAULT_SHADING_AZIMUTH_END),
+                    ): vol.Coerce(float),
+                    vol.Optional(
+                        CONF_SUN_ELEVATION_MIN,
+                        default=self._options.get(CONF_SUN_ELEVATION_MIN, DEFAULT_SHADING_ELEVATION_MIN),
+                    ): vol.Coerce(float),
+                    vol.Optional(
+                        CONF_SUN_ELEVATION_MAX,
+                        default=self._options.get(CONF_SUN_ELEVATION_MAX, DEFAULT_SHADING_ELEVATION_MAX),
+                    ): vol.Coerce(float),
+                    vol.Optional(
+                        CONF_SHADING_BRIGHTNESS_START,
+                        default=self._options.get(CONF_SHADING_BRIGHTNESS_START, DEFAULT_SHADING_BRIGHTNESS_START),
+                    ): vol.Coerce(float),
+                    vol.Optional(
+                        CONF_SHADING_BRIGHTNESS_END,
+                        default=self._options.get(CONF_SHADING_BRIGHTNESS_END, DEFAULT_SHADING_BRIGHTNESS_END),
+                    ): vol.Coerce(float),
+                }
+            )
+
+        if auto_cold:
+            schema.update(
+                {
+                    vol.Optional(
+                        CONF_TEMPERATURE_SENSOR_INDOOR,
+                        default=self._options.get(CONF_TEMPERATURE_SENSOR_INDOOR),
+                    ): selector.EntitySelector(
                         selector.EntitySelectorConfig(domain=["sensor"])
                     ),
-                    vol.Optional(CONF_TEMPERATURE_SENSOR_OUTDOOR, default=self._options.get(CONF_TEMPERATURE_SENSOR_OUTDOOR)): selector.EntitySelector(
+                    vol.Optional(
+                        CONF_TEMPERATURE_SENSOR_OUTDOOR,
+                        default=self._options.get(CONF_TEMPERATURE_SENSOR_OUTDOOR),
+                    ): selector.EntitySelector(
                         selector.EntitySelectorConfig(domain=["sensor"])
                     ),
                     vol.Optional(
@@ -306,59 +416,12 @@ class ShutterOptionsFlow(config_entries.OptionsFlow):
                     ): selector.EntitySelector(
                         selector.EntitySelectorConfig(domain=["sensor", "weather"])
                     ),
-                    vol.Optional(CONF_WIND_SENSOR, default=self._options.get(CONF_WIND_SENSOR)): selector.EntitySelector(
-                        selector.EntitySelectorConfig(domain=["sensor"])
-                    ),
-                    vol.Optional(CONF_WIND_LIMIT, default=self._options.get(CONF_WIND_LIMIT, DEFAULT_WIND_LIMIT)): vol.Coerce(float),
-                    vol.Optional(CONF_RESIDENT_SENSOR, default=self._options.get(CONF_RESIDENT_SENSOR)): selector.EntitySelector(
-                        selector.EntitySelectorConfig(domain=["binary_sensor", "switch"])
-                    ),
-                    vol.Optional(
-                        CONF_TIME_UP_EARLY,
-                        default=self._options.get(CONF_TIME_UP_EARLY, "06:00:00"),
-                    ): selector.TimeSelector(),
-                    vol.Optional(
-                        CONF_TIME_UP_LATE,
-                        default=self._options.get(CONF_TIME_UP_LATE, "08:00:00"),
-                    ): selector.TimeSelector(),
-                    vol.Optional(
-                        CONF_TIME_UP_EARLY_NON_WORKDAY,
-                        default=self._options.get(CONF_TIME_UP_EARLY_NON_WORKDAY, "07:30:00"),
-                    ): selector.TimeSelector(),
-                    vol.Optional(
-                        CONF_TIME_UP_LATE_NON_WORKDAY,
-                        default=self._options.get(CONF_TIME_UP_LATE_NON_WORKDAY, "09:30:00"),
-                    ): selector.TimeSelector(),
-                    vol.Optional(
-                        CONF_TIME_DOWN_EARLY,
-                        default=self._options.get(CONF_TIME_DOWN_EARLY, "18:00:00"),
-                    ): selector.TimeSelector(),
-                    vol.Optional(
-                        CONF_TIME_DOWN_LATE,
-                        default=self._options.get(CONF_TIME_DOWN_LATE, "23:00:00"),
-                    ): selector.TimeSelector(),
-                    vol.Optional(
-                        CONF_TIME_DOWN_EARLY_NON_WORKDAY,
-                        default=self._options.get(CONF_TIME_DOWN_EARLY_NON_WORKDAY, "18:30:00"),
-                    ): selector.TimeSelector(),
-                    vol.Optional(
-                        CONF_TIME_DOWN_LATE_NON_WORKDAY,
-                        default=self._options.get(CONF_TIME_DOWN_LATE_NON_WORKDAY, "23:30:00"),
-                    ): selector.TimeSelector(),
-                    vol.Optional(CONF_WORKDAY_SENSOR, default=self._options.get(CONF_WORKDAY_SENSOR)): selector.EntitySelector(
-                        selector.EntitySelectorConfig(domain=["binary_sensor", "sensor"])
-                    ),
-                    vol.Required(CONF_AUTO_UP, default=self._options.get(CONF_AUTO_UP, True)): bool,
-                    vol.Required(CONF_AUTO_DOWN, default=self._options.get(CONF_AUTO_DOWN, True)): bool,
-                    vol.Required(CONF_AUTO_BRIGHTNESS, default=self._options.get(CONF_AUTO_BRIGHTNESS, True)): bool,
-                    vol.Required(CONF_AUTO_SUN, default=self._options.get(CONF_AUTO_SUN, True)): bool,
-                    vol.Required(CONF_AUTO_VENTILATE, default=self._options.get(CONF_AUTO_VENTILATE, True)): bool,
-                    vol.Required(CONF_AUTO_COLD, default=self._options.get(CONF_AUTO_COLD, False)): bool,
-                    vol.Required(CONF_AUTO_SHADING, default=self._options.get(CONF_AUTO_SHADING, True)): bool,
-                    vol.Optional(
-                        CONF_MANUAL_OVERRIDE_MINUTES,
-                        default=self._options.get(CONF_MANUAL_OVERRIDE_MINUTES, DEFAULT_MANUAL_OVERRIDE_MINUTES),
-                    ): vol.Coerce(int),
+                }
+            )
+
+        if auto_ventilate:
+            schema.update(
+                {
                     **{
                         vol.Optional(
                             self._cover_key(cover),
@@ -369,8 +432,9 @@ class ShutterOptionsFlow(config_entries.OptionsFlow):
                         for cover in self._options.get(CONF_COVERS, [])
                     },
                 }
-            ),
-        )
+            )
+
+        return self.async_show_form(step_id="init", data_schema=vol.Schema(schema))
 
     def _cover_key(self, cover: str) -> str:
         return f"windows_{slugify(cover)}"
