@@ -54,6 +54,8 @@
           "temperature_sensor_outdoor": "Outdoor temperature sensor",
           "temperature_threshold": "Temperature threshold",
           "temperature_forecast_threshold": "Forecast temperature threshold",
+          "cold_protection_temperature": "Close when temperature below",
+          "cold_protection_forecast_sensor": "Forecast temperature sensor (optional)",
           "wind_sensor": "Wind speed sensor",
           "wind_speed_limit": "Wind speed limit",
           "manual_override_minutes": "Manual override duration (minutes)",
@@ -62,6 +64,7 @@
           "auto_brightness_enabled": "Use brightness control",
           "auto_sun_enabled": "Use sun elevation control",
           "auto_ventilate_enabled": "Enable ventilation/lockout",
+          "auto_cold_protection_enabled": "Enable cold night closing",
           "auto_shading_enabled": "Enable sun shading"
         }
       }
@@ -72,14 +75,30 @@
       "init": {
         "title": "Update shutter settings",
         "description": "Adjust blueprint-derived thresholds, sensors, and timing.",
-        "data": {}
+        "data": {
+          "cold_protection_temperature": "Close when temperature below",
+          "cold_protection_forecast_sensor": "Forecast temperature sensor (optional)",
+          "auto_cold_protection_enabled": "Enable cold night closing"
+        }
       }
     }
   },
   "entity": {
     "sensor": {
       "target": {
-      "name": "Shutter target"
+        "name": "Shutter target"
+      },
+      "current_position": {
+        "name": "Current position"
+      },
+      "next_open": {
+        "name": "Next opening"
+      },
+      "next_close": {
+        "name": "Next closing"
+      },
+      "shading_active": {
+        "name": "Shading active"
       }
     }
   },

@@ -338,31 +338,6 @@ blueprint:
   homeassistant:
     min_version: "2024.10.0"
   input:
-    blind:
-      name: "🏠 Cover"
-      description: >-
-        Which blind or roller shutter should be automated?
-
-        <details>
-        <summary><code><strong>CLICK HERE:</strong> Information about a cover group</code></summary>
-
-
-        In principle, you can use a group here.
-        But please note that there are problems with position detection for a group of covers!
-        For example, one cover may be at position 100% and the other cover at position 0%.
-        This results in a wrong group-value of 50%.
-
-
-        My clear recommendation is to create **one automation for each cover**.
-
-        </details>
-
-      selector:
-        entity:
-          filter:
-            - domain:
-                - cover
-
     feature_section:
       name: "Automation Options"
       icon: mdi:window-shutter-cog
@@ -471,6 +446,31 @@ blueprint:
               sort: false
               custom_value: false
               mode: list
+
+    blind:
+      name: "🏠 Cover"
+      description: >-
+        Which blind or roller shutter should be automated?
+
+        <details>
+        <summary><code><strong>CLICK HERE:</strong> Information about a cover group</code></summary>
+
+
+        In principle, you can use a group here.
+        But please note that there are problems with position detection for a group of covers!
+        For example, one cover may be at position 100% and the other cover at position 0%.
+        This results in a wrong group-value of 50%.
+
+
+        My clear recommendation is to create **one automation for each cover**.
+
+        </details>
+
+      selector:
+        entity:
+          filter:
+            - domain:
+                - cover
 
     helper_section:
       name: "Cover Status Helper"
@@ -764,6 +764,7 @@ blueprint:
       name: "Time Control Configuration"
       icon: mdi:clock-time-two-outline
       collapsed: true
+      visible: "{{ 'auto_up_enabled' in auto_options or 'auto_down_enabled' in auto_options or 'auto_brightness_enabled' in auto_options or 'auto_sun_enabled' in auto_options }}"
       input:
         time_control:
           name: "⏲️ Selection of time control options"
@@ -975,6 +976,7 @@ blueprint:
         <center><code>Settings if the feature ‘🔅 - Enable brightness control’ has been activated above.</code></center><br />
       icon: mdi:brightness-5
       collapsed: true
+      visible: "{{ 'auto_brightness_enabled' in auto_options }}"
       input:
         default_brightness_sensor:
           name: "🔅 Default Brightness Sensor"
@@ -1027,6 +1029,7 @@ blueprint:
         <center><code>Settings if the feature ‘☀️ - Enable sun elevation control’ has been activated above.</code></center><br />
       icon: mdi:weather-sunny
       collapsed: true
+      visible: "{{ 'auto_sun_enabled' in auto_options or 'auto_shading_enabled' in auto_options }}"
       input:
         default_sun_sensor:
           name: "☀️ Sun Sensor"
@@ -1098,6 +1101,7 @@ blueprint:
         <center><code>All these settings are optional / A Cover Status Helper is required!</code></center><br />
       icon: mdi:door-closed-lock
       collapsed: true
+      visible: "{{ 'auto_ventilate_enabled' in auto_options }}"
       input:
         contact_window_opened:
           name: "🚪 Contact Sensor For Open Window (Full Ventilation)"
@@ -1250,6 +1254,7 @@ blueprint:
         <center><code>All these settings are optional / A Cover Status Helper is required! / The attributes of default sun sensor (configured above) is used.</code></center><br />
       icon: mdi:shield-sun-outline
       collapsed: true
+      visible: "{{ 'auto_shading_enabled' in auto_options }}"
       input:
         shading_azimuth_start:
           name: "🥵 Sun Shading - Azimuth Start Value"
