@@ -61,5 +61,14 @@
         }
       }
     }
+  },
+  "ui": {
+    "components": {
+      "entity": {
+        "entity-picker": {
+          "no_match": "Keine Entitäten gefunden"
+        }
+      }
+    }
   }
 }
