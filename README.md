@@ -15,7 +15,7 @@ This repository provides a Home Assistant custom integration inspired by the ioB
 3. Add the integration via **Settings → Devices & Services → Add Integration → Shutter Control**.
 
 ### Testing releases
-Tagged builds automatically publish a `shuttercontrol.zip` asset that can be downloaded from the GitHub release page. Extract the `custom_components` folder from the archive into your Home Assistant configuration directory to test a specific version.
+Tagged builds automatically publish a `shuttercontrol.zip` asset that can be downloaded from the GitHub release page. Extract the `custom_components` folder from the archive into your Home Assistant configuration directory to test a specific version. The release asset also bundles the original adapter logic from the `lib/` directory for reference while the Home Assistant port evolves.
 
 ## Configuration
 The config flow collects:
