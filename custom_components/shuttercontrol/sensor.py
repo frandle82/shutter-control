@@ -47,6 +47,7 @@ class ShutterProfileSensor(SensorEntity):
         self._attr_native_value = None
         self._attr_extra_state_attributes: dict[str, Any] = {
             ATTR_ENTITY_ID: profile.entity_id,
+            "room": profile.room,
             "last_reason": None,
             "last_updated": None,
             "open_position": profile.open_position,

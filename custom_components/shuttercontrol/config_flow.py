@@ -17,6 +17,7 @@ from .const import (
     CONF_MANUAL_OVERRIDE,
     CONF_OPEN_POSITION,
     CONF_PRESENCE_ENTITY,
+    CONF_ROOM,
     CONF_SUNRISE_OFFSET,
     CONF_SUNSET_OFFSET,
     CONF_WEATHER_ENTITY,
@@ -84,6 +85,7 @@ def _cover_schema(defaults: dict[str, Any]) -> vol.Schema:
         {
             vol.Required(ATTR_ENTITY_ID): selector({"entity": {"domain": "cover"}}),
             vol.Optional(CONF_NAME): str,
+            vol.Optional(CONF_ROOM, default=None): str,
             vol.Optional(
                 CONF_OPEN_POSITION, default=defaults[CONF_OPEN_POSITION]
             ): vol.All(vol.Coerce(int), vol.Range(min=0, max=100)),
@@ -117,6 +119,7 @@ class ShutterControlConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
     def __init__(self) -> None:
         self._selected_covers: list[str] = []
+        self._rooms: list[dict[str, Any]] = []
         self._base_options: dict[str, Any] = {}
         self._cover_options: list[dict[str, Any]] = []
 
@@ -130,7 +133,7 @@ class ShutterControlConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 errors[CONF_COVERS] = "no_covers"
             else:
                 self._selected_covers = covers
-                return await self.async_step_base_settings()
+                return await self.async_step_room_assignment()
 
         return self.async_show_form(
             step_id="user", data_schema=SELECT_COVERS_SCHEMA, errors=errors
@@ -161,6 +164,42 @@ class ShutterControlConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         self._base_options = user_input
         return await self.async_step_cover_settings()
 
+    async def async_step_room_assignment(
+        self, user_input: dict[str, Any] | None = None
+    ):
+        """Ask the user to map shutters to dynamic rooms."""
+
+        if user_input is None:
+            defaults = [
+                {ATTR_ENTITY_ID: cover, CONF_ROOM: None}
+                for cover in self._selected_covers
+            ]
+            schema = vol.Schema(
+                {
+                    vol.Required(CONF_COVERS, default=defaults): vol.All(
+                        vol.Length(min=1),
+                        [
+                            vol.Schema(
+                                {
+                                    vol.Required(ATTR_ENTITY_ID): selector(
+                                        {"entity": {"domain": "cover"}}
+                                    ),
+                                    vol.Optional(CONF_ROOM, default=None): str,
+                                },
+                                extra=vol.ALLOW_EXTRA,
+                            )
+                        ],
+                    )
+                },
+                extra=vol.ALLOW_EXTRA,
+            )
+            return self.async_show_form(
+                step_id="room_assignment", data_schema=schema
+            )
+
+        self._rooms = user_input[CONF_COVERS]
+        return await self.async_step_base_settings()
+
     async def async_step_cover_settings(
         self, user_input: dict[str, Any] | None = None
     ):
@@ -184,6 +223,14 @@ class ShutterControlConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         existing = self._cover_options or [
             {
                 ATTR_ENTITY_ID: cover,
+                CONF_ROOM: next(
+                    (
+                        room.get(CONF_ROOM)
+                        for room in self._rooms
+                        if room.get(ATTR_ENTITY_ID) == cover
+                    ),
+                    None,
+                ),
                 CONF_OPEN_POSITION: cover_defaults[CONF_OPEN_POSITION],
                 CONF_CLOSE_POSITION: cover_defaults[CONF_CLOSE_POSITION],
                 CONF_SUNRISE_OFFSET: cover_defaults[CONF_SUNRISE_OFFSET],
@@ -309,7 +356,13 @@ class ShutterControlOptionsFlow(config_entries.OptionsFlow):
             CONF_COVERS, self.config_entry.data.get(CONF_COVERS, [])
         )
 
-        existing = self._cover_options or current_covers
+        existing = self._cover_options or [
+            {
+                **cover,
+                CONF_ROOM: cover.get(CONF_ROOM),
+            }
+            for cover in current_covers
+        ]
 
         schema = vol.Schema(
             {

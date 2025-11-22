@@ -1,7 +1,7 @@
 {
   "domain": "shuttercontrol",
   "name": "Shutter Control",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "documentation": "https://github.com/simatec/ioBroker.shuttercontrol",
   "requirements": [],
   "codeowners": ["@simatec"],

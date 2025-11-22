@@ -9,6 +9,13 @@
           "covers": "Cover or shutter entities"
         }
       },
+      "room_assignment": {
+        "title": "Assign rooms",
+        "description": "Map each shutter to a room of your choice so living, sleeping, and kids areas become dynamic.",
+        "data": {
+          "covers": "Shutter with room"
+        }
+      },
       "base_settings": {
         "title": "Default behavior",
         "description": "Set ioBroker-like defaults for moves along with weather and presence checks.",
@@ -28,6 +35,8 @@
         "description": "Fine-tune each shutter with offsets, positions, and window sensors. Values can be edited later via options.",
         "data": {
           "covers": "Configured shutters",
+          "name": "Display name",
+          "room": "Room",
           "window_sensors": "Window/door sensors"
         }
       }
@@ -57,6 +66,8 @@
         "description": "Update the per-shutter offsets, positions, and sensors.",
         "data": {
           "covers": "Configured shutters",
+          "name": "Display name",
+          "room": "Room",
           "window_sensors": "Window/door sensors"
         }
       }

@@ -9,6 +9,13 @@
           "covers": "Rollo- oder Jalousie-Entitäten"
         }
       },
+      "room_assignment": {
+        "title": "Räume zuweisen",
+        "description": "Ordne jedes Rollo einem Raum zu. Die Räume sind frei wählbar und ersetzen die festen ioBroker-Bereiche.",
+        "data": {
+          "covers": "Rollo mit Raum"
+        }
+      },
       "base_settings": {
         "title": "Standardverhalten",
         "description": "Lege ioBroker-ähnliche Standardwerte für Fahrten sowie Wetter- und Präsenzprüfungen fest.",
@@ -28,6 +35,8 @@
         "description": "Offsets, Positionen und Fenstersensoren pro Rollo festlegen. Alle Werte können später angepasst werden.",
         "data": {
           "covers": "Konfigurierte Rollos",
+          "name": "Anzeigename",
+          "room": "Raum",
           "window_sensors": "Fenster-/Türsensoren"
         }
       }
@@ -57,6 +66,8 @@
         "description": "Offsets, Positionen und Sensoren je Rollo bearbeiten.",
         "data": {
           "covers": "Konfigurierte Rollos",
+          "name": "Anzeigename",
+          "room": "Raum",
           "window_sensors": "Fenster-/Türsensoren"
         }
       }

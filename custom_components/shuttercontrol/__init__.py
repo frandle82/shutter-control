@@ -21,6 +21,7 @@ from .const import (
     CONF_MANUAL_OVERRIDE,
     CONF_OPEN_POSITION,
     CONF_PRESENCE_ENTITY,
+    CONF_ROOM,
     CONF_SUNRISE_OFFSET,
     CONF_SUNSET_OFFSET,
     CONF_WEATHER_ENTITY,
@@ -40,6 +41,7 @@ class ShutterProfile:
 
     entity_id: str
     name: str | None
+    room: str | None
     open_position: int
     close_position: int
     sunrise_offset: int
@@ -210,6 +212,7 @@ def _build_profiles(entry: ConfigEntry) -> list[ShutterProfile]:
             ShutterProfile(
                 entity_id=cover[ATTR_ENTITY_ID],
                 name=cover.get(CONF_NAME),
+                room=cover.get(CONF_ROOM),
                 open_position=cover.get(CONF_OPEN_POSITION),
                 close_position=cover.get(CONF_CLOSE_POSITION),
                 sunrise_offset=cover.get(CONF_SUNRISE_OFFSET),
