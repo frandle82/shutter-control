@@ -4,6 +4,7 @@ from __future__ import annotations
 
 DOMAIN = "shuttercontrol"
 CONF_COVERS = "covers"
+CONF_ROOM = "room"
 CONF_SUNRISE_OFFSET = "sunrise_offset"
 CONF_SUNSET_OFFSET = "sunset_offset"
 CONF_OPEN_POSITION = "open_position"
@@ -13,6 +14,7 @@ CONF_PRESENCE_ENTITY = "presence_entity"
 CONF_WEATHER_ENTITY = "weather_entity"
 CONF_WIND_SPEED_LIMIT = "wind_speed_limit"
 CONF_MANUAL_OVERRIDE = "manual_override"
+CONF_WINDOW_SENSORS = "window_sensors"
 DEFAULT_OPEN_POSITION = 100
 DEFAULT_CLOSE_POSITION = 0
 DEFAULT_SUNRISE_OFFSET = -15

@@ -9,11 +9,12 @@ import voluptuous as vol
 from homeassistant import config_entries
 from homeassistant.const import ATTR_ENTITY_ID, CONF_NAME
 from homeassistant.core import HomeAssistant, callback
-from homeassistant.helpers import entity_registry as er
+from homeassistant.helpers.selector import selector
 
 from .const import (
     CONF_CLOSE_POSITION,
     CONF_COVERS,
+    CONF_ROOM,
     CONF_MANUAL_OVERRIDE,
     CONF_OPEN_POSITION,
     CONF_PRESENCE_ENTITY,
@@ -21,6 +22,7 @@ from .const import (
     CONF_SUNSET_OFFSET,
     CONF_WEATHER_ENTITY,
     CONF_WIND_SPEED_LIMIT,
+    CONF_WINDOW_SENSORS,
     DEFAULT_CLOSE_POSITION,
     DEFAULT_OPEN_POSITION,
     DEFAULT_SUNRISE_OFFSET,
@@ -39,8 +41,17 @@ STEP_USER_DATA_SCHEMA = vol.Schema(
         ),
         vol.Optional(CONF_SUNRISE_OFFSET, default=DEFAULT_SUNRISE_OFFSET): vol.Coerce(int),
         vol.Optional(CONF_SUNSET_OFFSET, default=DEFAULT_SUNSET_OFFSET): vol.Coerce(int),
-        vol.Optional(CONF_PRESENCE_ENTITY): str,
-        vol.Optional(CONF_WEATHER_ENTITY): str,
+        vol.Optional(CONF_PRESENCE_ENTITY): selector({
+            "entity": {
+                "domain": [
+                    "binary_sensor",
+                    "device_tracker",
+                    "person",
+                    "sensor",
+                ]
+            }
+        }),
+        vol.Optional(CONF_WEATHER_ENTITY): selector({"entity": {"domain": "weather"}}),
         vol.Optional(CONF_WIND_SPEED_LIMIT, default=DEFAULT_WIND_SPEED_LIMIT): vol.Coerce(
             float
         ),
@@ -70,8 +81,21 @@ class ShutterControlConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     async def async_step_covers(self, user_input: dict[str, Any] | None = None):
         """Collect per-cover configuration values."""
 
-        hass = self.hass
-        cover_entities = _async_get_cover_entities(hass)
+        cover_defaults = {
+            CONF_OPEN_POSITION: self._base_options.get(
+                CONF_OPEN_POSITION, DEFAULT_OPEN_POSITION
+            ),
+            CONF_CLOSE_POSITION: self._base_options.get(
+                CONF_CLOSE_POSITION, DEFAULT_CLOSE_POSITION
+            ),
+            CONF_SUNRISE_OFFSET: self._base_options.get(
+                CONF_SUNRISE_OFFSET, DEFAULT_SUNRISE_OFFSET
+            ),
+            CONF_SUNSET_OFFSET: self._base_options.get(
+                CONF_SUNSET_OFFSET, DEFAULT_SUNSET_OFFSET
+            ),
+        }
+
         options_schema = vol.Schema(
             {
                 vol.Optional(CONF_COVERS, default=[]): vol.All(
@@ -79,32 +103,40 @@ class ShutterControlConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     [
                         vol.Schema(
                             {
-                                vol.Required(ATTR_ENTITY_ID): vol.In(cover_entities),
+                                vol.Required(CONF_ROOM): str,
+                                vol.Required(ATTR_ENTITY_ID): selector(
+                                    {"entity": {"domain": "cover"}}
+                                ),
                                 vol.Optional(CONF_NAME): str,
                                 vol.Optional(
                                     CONF_OPEN_POSITION,
-                                    default=self._base_options.get(
-                                        CONF_OPEN_POSITION, DEFAULT_OPEN_POSITION
-                                    ),
+                                    default=cover_defaults[CONF_OPEN_POSITION],
                                 ): vol.All(vol.Coerce(int), vol.Range(min=0, max=100)),
                                 vol.Optional(
                                     CONF_CLOSE_POSITION,
-                                    default=self._base_options.get(
-                                        CONF_CLOSE_POSITION, DEFAULT_CLOSE_POSITION
-                                    ),
+                                    default=cover_defaults[CONF_CLOSE_POSITION],
                                 ): vol.All(vol.Coerce(int), vol.Range(min=0, max=100)),
                                 vol.Optional(
                                     CONF_SUNRISE_OFFSET,
-                                    default=self._base_options.get(
-                                        CONF_SUNRISE_OFFSET, DEFAULT_SUNRISE_OFFSET
-                                    ),
+                                    default=cover_defaults[CONF_SUNRISE_OFFSET],
                                 ): vol.Coerce(int),
                                 vol.Optional(
                                     CONF_SUNSET_OFFSET,
-                                    default=self._base_options.get(
-                                        CONF_SUNSET_OFFSET, DEFAULT_SUNSET_OFFSET
-                                    ),
+                                    default=cover_defaults[CONF_SUNSET_OFFSET],
                                 ): vol.Coerce(int),
+                                vol.Optional(CONF_WINDOW_SENSORS, default=[]): selector(
+                                    {
+                                        "entity": {
+                                            "domain": "binary_sensor",
+                                            "device_class": [
+                                                "window",
+                                                "door",
+                                                "opening",
+                                            ],
+                                            "multiple": True,
+                                        }
+                                    }
+                                ),
                             }
                         )
                     ],
@@ -149,11 +181,13 @@ class ShutterControlOptionsFlow(config_entries.OptionsFlow):
     async def async_step_init(self, user_input=None):
         """Manage the Shutter Control options."""
 
-        hass = self.hass
-        cover_entities = _async_get_cover_entities(hass)
         current_covers = self.config_entry.options.get(
             CONF_COVERS, self.config_entry.data.get(CONF_COVERS, [])
         )
+
+        for cover in current_covers:
+            cover.setdefault(CONF_ROOM, "")
+            cover.setdefault(CONF_WINDOW_SENSORS, [])
 
         base_defaults = {
             CONF_OPEN_POSITION: self.config_entry.options.get(
@@ -201,8 +235,23 @@ class ShutterControlOptionsFlow(config_entries.OptionsFlow):
                 vol.Optional(CONF_SUNSET_OFFSET, default=base_defaults[CONF_SUNSET_OFFSET]): vol.Coerce(
                     int
                 ),
-                vol.Optional(CONF_PRESENCE_ENTITY, default=base_defaults[CONF_PRESENCE_ENTITY]): str,
-                vol.Optional(CONF_WEATHER_ENTITY, default=base_defaults[CONF_WEATHER_ENTITY]): str,
+                vol.Optional(
+                    CONF_PRESENCE_ENTITY, default=base_defaults[CONF_PRESENCE_ENTITY]
+                ): selector(
+                    {
+                        "entity": {
+                            "domain": [
+                                "binary_sensor",
+                                "device_tracker",
+                                "person",
+                                "sensor",
+                            ]
+                        }
+                    }
+                ),
+                vol.Optional(CONF_WEATHER_ENTITY, default=base_defaults[CONF_WEATHER_ENTITY]): selector(
+                    {"entity": {"domain": "weather"}}
+                ),
                 vol.Optional(
                     CONF_WIND_SPEED_LIMIT,
                     default=base_defaults[CONF_WIND_SPEED_LIMIT],
@@ -213,7 +262,10 @@ class ShutterControlOptionsFlow(config_entries.OptionsFlow):
                     [
                         vol.Schema(
                             {
-                                vol.Required(ATTR_ENTITY_ID): vol.In(cover_entities),
+                                vol.Required(CONF_ROOM, default=""): str,
+                                vol.Required(ATTR_ENTITY_ID): selector(
+                                    {"entity": {"domain": "cover"}}
+                                ),
                                 vol.Optional(CONF_NAME): str,
                                 vol.Optional(
                                     CONF_OPEN_POSITION,
@@ -231,6 +283,19 @@ class ShutterControlOptionsFlow(config_entries.OptionsFlow):
                                     CONF_SUNSET_OFFSET,
                                     default=base_defaults[CONF_SUNSET_OFFSET],
                                 ): vol.Coerce(int),
+                                vol.Optional(CONF_WINDOW_SENSORS, default=[]): selector(
+                                    {
+                                        "entity": {
+                                            "domain": "binary_sensor",
+                                            "device_class": [
+                                                "window",
+                                                "door",
+                                                "opening",
+                                            ],
+                                            "multiple": True,
+                                        }
+                                    }
+                                ),
                             }
                         )
                     ],
@@ -244,11 +309,3 @@ class ShutterControlOptionsFlow(config_entries.OptionsFlow):
         return self.async_create_entry(title="Shutter Control", data=user_input)
 
 
-@callback
-def _async_get_cover_entities(hass: HomeAssistant) -> list[str]:
-    registry = er.async_get(hass)
-    return sorted(
-        entry.entity_id
-        for entry in er.async_entries_for_domain(registry, "cover")
-        if not entry.disabled
-    )

@@ -20,7 +20,9 @@
         "title": "Shutters",
         "description": "Add shutters and fine-tune their behaviour.",
         "data": {
-          "covers": "Covers"
+          "covers": "Covers",
+          "room": "Room/zone",
+          "window_sensors": "Window/door sensors"
         }
       }
     },
@@ -42,7 +44,9 @@
           "presence_entity": "Presence/occupancy entity",
           "weather_entity": "Weather entity",
           "wind_speed_limit": "Wind speed limit (km/h)",
-          "manual_override": "Disable automation while manual override is active"
+          "manual_override": "Disable automation while manual override is active",
+          "room": "Room/zone",
+          "window_sensors": "Window/door sensors"
         }
       }
     }

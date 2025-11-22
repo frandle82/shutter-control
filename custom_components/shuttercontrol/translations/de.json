@@ -20,7 +20,9 @@
         "title": "Rollläden",
         "description": "Rollläden hinzufügen und Verhalten anpassen.",
         "data": {
-          "covers": "Rollläden"
+          "covers": "Rollläden",
+          "room": "Raum/Bereich",
+          "window_sensors": "Fenster-/Türsensoren"
         }
       }
     },
@@ -42,7 +44,9 @@
           "presence_entity": "Präsenz-/Belegungssensor",
           "weather_entity": "Wetter-Entity",
           "wind_speed_limit": "Windgeschwindigkeitsgrenze (km/h)",
-          "manual_override": "Automatisierung bei manueller Bedienung pausieren"
+          "manual_override": "Automatisierung bei manueller Bedienung pausieren",
+          "room": "Raum/Bereich",
+          "window_sensors": "Fenster-/Türsensoren"
         }
       }
     }

@@ -18,6 +18,7 @@ from .const import (
     ATTR_TARGET,
     CONF_CLOSE_POSITION,
     CONF_COVERS,
+    CONF_ROOM,
     CONF_MANUAL_OVERRIDE,
     CONF_OPEN_POSITION,
     CONF_PRESENCE_ENTITY,
@@ -25,6 +26,7 @@ from .const import (
     CONF_SUNSET_OFFSET,
     CONF_WEATHER_ENTITY,
     CONF_WIND_SPEED_LIMIT,
+    CONF_WINDOW_SENSORS,
     DOMAIN,
     SERVICE_MOVE_COVERS,
     SERVICE_RECALCULATE,
@@ -43,6 +45,8 @@ class ShutterProfile:
     close_position: int
     sunrise_offset: int
     sunset_offset: int
+    room: str | None
+    window_sensors: list[str]
 
 
 class ShutterController:
@@ -151,6 +155,19 @@ class ShutterController:
                     )
                     position = 50
 
+        if profile.window_sensors and position < profile.open_position:
+            open_states = {"on", "open", "opening", "true", "1"}
+            for sensor in profile.window_sensors:
+                sensor_state = self.hass.states.get(sensor)
+                if sensor_state and sensor_state.state in open_states:
+                    _LOGGER.warning(
+                        "Window sensor %s reports open; skipping close for %s in room %s",
+                        sensor,
+                        profile.entity_id,
+                        profile.room,
+                    )
+                    return
+
         await self.hass.services.async_call(
             "cover",
             "set_cover_position",
@@ -177,6 +194,8 @@ def _build_profiles(entry: ConfigEntry) -> list[ShutterProfile]:
                 close_position=cover.get(CONF_CLOSE_POSITION),
                 sunrise_offset=cover.get(CONF_SUNRISE_OFFSET),
                 sunset_offset=cover.get(CONF_SUNSET_OFFSET),
+                room=cover.get(CONF_ROOM),
+                window_sensors=cover.get(CONF_WINDOW_SENSORS, []),
             )
         )
     return profiles

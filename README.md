@@ -3,10 +3,12 @@
 This repository provides a Home Assistant custom integration inspired by the ioBroker shuttercontrol adapter. It automates cover entities based on sunrise/sunset, optional presence, and weather protection.
 
 ## Features
-- Config flow UI for global defaults and per-cover tuning.
+- Config flow UI with entity selectors for global defaults and per-cover tuning.
 - Per-cover sunrise/sunset offsets plus open/close target positions.
+- Room-aware cover profiles so multiple shutters can be grouped per room.
 - Optional presence guard to keep shutters untouched when someone is home.
 - Optional weather integration that raises shutters to a safer position when wind speeds exceed a configured limit.
+- Optional window/door sensors prevent shutters from closing on open windows.
 - Services to trigger manual moves or to recalculate scheduled callbacks after changing entities.
 
 ## Installation
@@ -23,6 +25,7 @@ The config flow collects:
 - **Sunrise/Sunset offsets (minutes)** to adjust when shutters move.
 - Optional **presence sensor**, **weather entity**, and **wind speed limit** to pause or adapt movements.
 - At least one **cover entity** with optional custom positions and offsets.
+- A **room name** for grouping multiple shutters per room and optional **window/door sensors** that block closing when a window is open.
 
 After setup, revisit the integration options to add more covers or update automation guards.
 
