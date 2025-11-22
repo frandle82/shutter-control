@@ -15,7 +15,7 @@ jobs:
       - name: Build zip
         run: |
           mkdir -p dist
-          zip -r dist/shuttercontrol.zip custom_components/shuttercontrol lib blueprints README.md LICENSE hacs.json
+          zip -r dist/shuttercontrol.zip blueprints README.md LICENSE hacs.json
 
       - name: Publish GitHub release
         uses: softprops/action-gh-release@v2
