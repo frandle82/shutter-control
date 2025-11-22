@@ -13,11 +13,14 @@ from homeassistant.util import dt as dt_util
 
 from .const import (
     CONF_AUTO_BRIGHTNESS,
+    CONF_AUTO_COLD,
     CONF_AUTO_DOWN,
     CONF_AUTO_SHADING,
     CONF_AUTO_SUN,
     CONF_AUTO_UP,
     CONF_AUTO_VENTILATE,
+    CONF_COLD_PROTECTION_FORECAST_SENSOR,
+    CONF_COLD_PROTECTION_THRESHOLD,
     CONF_BRIGHTNESS_CLOSE_BELOW,
     CONF_BRIGHTNESS_OPEN_ABOVE,
     CONF_BRIGHTNESS_SENSOR,
@@ -148,7 +151,9 @@ class ShutterController:
             self.config.get(CONF_WIND_SENSOR),
             self.config.get(CONF_TEMPERATURE_SENSOR_INDOOR),
             self.config.get(CONF_TEMPERATURE_SENSOR_OUTDOOR),
+            self.config.get(CONF_COLD_PROTECTION_FORECAST_SENSOR),
             self.config.get(CONF_RESIDENT_SENSOR),
+            self.cover,
         ]
         sensor_entities.extend(self._window_sensors())
         for entity_id in sensor_entities:
@@ -230,6 +235,10 @@ class ShutterController:
             await self._set_position(self.config.get(CONF_VENTILATE_POSITION), "ventilation")
             return
 
+        if self.config.get(CONF_AUTO_COLD) and self._cold_protection_needed(sun_elevation):
+            await self._set_position(self.config.get(CONF_CLOSE_POSITION), "cold_protection")
+            return
+
         if self.config.get(CONF_AUTO_SHADING) and self._shading_conditions(
             sun_azimuth, sun_elevation, brightness
         ):
@@ -271,6 +280,52 @@ class ShutterController:
         if not self.config.get(CONF_AUTO_BRIGHTNESS) or brightness is None:
             return True
         return brightness <= float(self.config.get(CONF_BRIGHTNESS_CLOSE_BELOW))
+
+    def _cold_protection_needed(self, sun_elevation: float | None) -> bool:
+        if sun_elevation is not None and sun_elevation > 0:
+            return False
+        threshold = self._cold_threshold()
+        if threshold is None:
+            return False
+        outdoor = _float_state(self.hass, self.config.get(CONF_TEMPERATURE_SENSOR_OUTDOOR))
+        if outdoor is not None and outdoor <= threshold:
+            return True
+        forecast = self._cold_forecast_temperature()
+        if forecast is not None and forecast <= threshold:
+            return True
+        return False
+
+    def _cold_threshold(self) -> float | None:
+        value = self.config.get(CONF_COLD_PROTECTION_THRESHOLD)
+        if value is None:
+            return None
+        try:
+            return float(value)
+        except (TypeError, ValueError):
+            return None
+
+    def _cold_forecast_temperature(self) -> float | None:
+        entity_id = self.config.get(CONF_COLD_PROTECTION_FORECAST_SENSOR)
+        if not entity_id:
+            return None
+        state = self.hass.states.get(entity_id)
+        if state is None:
+            return None
+        domain = state.entity_id.split(".")[0]
+        if domain == "weather":
+            forecast = state.attributes.get("forecast")
+            if isinstance(forecast, list) and forecast:
+                entry = forecast[0] or {}
+                for key in ("templow", "temperature"):
+                    try:
+                        return float(entry.get(key))
+                    except (TypeError, ValueError):
+                        continue
+            try:
+                return float(state.attributes.get("temperature"))
+            except (TypeError, ValueError):
+                return None
+        return _float_state(self.hass, entity_id)
 
     def _shading_conditions(
         self, sun_azimuth: float | None, sun_elevation: float | None, brightness: float | None
@@ -397,6 +452,9 @@ class ShutterController:
         return dt_util.as_utc(candidate_local)
 
     def _publish_state(self) -> None:
+        current_position = self._current_position()
+        shading_enabled = bool(self.config.get(CONF_AUTO_SHADING))
+        shading_active = shading_enabled and self._reason in {"shading", "manual_shading"}
         async_dispatcher_send(
             self.hass,
             SIGNAL_STATE_UPDATED,
@@ -407,4 +465,7 @@ class ShutterController:
             self._manual_until,
             self._next_open,
             self._next_close,
+            current_position,
+            shading_enabled,
+            shading_active,
         )

@@ -10,11 +10,14 @@ from homeassistant.util import slugify
 
 from .const import (
     CONF_AUTO_BRIGHTNESS,
+    CONF_AUTO_COLD,
     CONF_AUTO_DOWN,
     CONF_AUTO_SHADING,
     CONF_AUTO_SUN,
     CONF_AUTO_UP,
     CONF_AUTO_VENTILATE,
+    CONF_COLD_PROTECTION_FORECAST_SENSOR,
+    CONF_COLD_PROTECTION_THRESHOLD,
     CONF_BRIGHTNESS_CLOSE_BELOW,
     CONF_BRIGHTNESS_OPEN_ABOVE,
     CONF_BRIGHTNESS_SENSOR,
@@ -65,6 +68,7 @@ from .const import (
     DEFAULT_SUN_ELEVATION_OPEN,
     DEFAULT_TEMPERATURE_FORECAST_THRESHOLD,
     DEFAULT_TEMPERATURE_THRESHOLD,
+    DEFAULT_COLD_PROTECTION_THRESHOLD,
     DEFAULT_TOLERANCE,
     DEFAULT_VENTILATE_POSITION,
     DEFAULT_WIND_LIMIT,
@@ -184,6 +188,12 @@ class ShutterControlFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     vol.Optional(
                         CONF_TEMPERATURE_FORECAST_THRESHOLD, default=DEFAULT_TEMPERATURE_FORECAST_THRESHOLD
                     ): vol.Coerce(float),
+                    vol.Optional(
+                        CONF_COLD_PROTECTION_THRESHOLD, default=DEFAULT_COLD_PROTECTION_THRESHOLD
+                    ): vol.Coerce(float),
+                    vol.Optional(CONF_COLD_PROTECTION_FORECAST_SENSOR): selector.EntitySelector(
+                        selector.EntitySelectorConfig(domain=["sensor", "weather"])
+                    ),
                     vol.Optional(CONF_WIND_SENSOR): selector.EntitySelector(
                         selector.EntitySelectorConfig(domain=["sensor"])
                     ),
@@ -194,6 +204,7 @@ class ShutterControlFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     vol.Required(CONF_AUTO_BRIGHTNESS, default=True): bool,
                     vol.Required(CONF_AUTO_SUN, default=True): bool,
                     vol.Required(CONF_AUTO_VENTILATE, default=True): bool,
+                    vol.Required(CONF_AUTO_COLD, default=False): bool,
                     vol.Required(CONF_AUTO_SHADING, default=True): bool,
                 }
             ),
@@ -285,6 +296,16 @@ class ShutterOptionsFlow(config_entries.OptionsFlow):
                         CONF_TEMPERATURE_FORECAST_THRESHOLD,
                         default=self._options.get(CONF_TEMPERATURE_FORECAST_THRESHOLD, DEFAULT_TEMPERATURE_FORECAST_THRESHOLD),
                     ): vol.Coerce(float),
+                    vol.Optional(
+                        CONF_COLD_PROTECTION_THRESHOLD,
+                        default=self._options.get(CONF_COLD_PROTECTION_THRESHOLD, DEFAULT_COLD_PROTECTION_THRESHOLD),
+                    ): vol.Coerce(float),
+                    vol.Optional(
+                        CONF_COLD_PROTECTION_FORECAST_SENSOR,
+                        default=self._options.get(CONF_COLD_PROTECTION_FORECAST_SENSOR),
+                    ): selector.EntitySelector(
+                        selector.EntitySelectorConfig(domain=["sensor", "weather"])
+                    ),
                     vol.Optional(CONF_WIND_SENSOR, default=self._options.get(CONF_WIND_SENSOR)): selector.EntitySelector(
                         selector.EntitySelectorConfig(domain=["sensor"])
                     ),
@@ -332,6 +353,7 @@ class ShutterOptionsFlow(config_entries.OptionsFlow):
                     vol.Required(CONF_AUTO_BRIGHTNESS, default=self._options.get(CONF_AUTO_BRIGHTNESS, True)): bool,
                     vol.Required(CONF_AUTO_SUN, default=self._options.get(CONF_AUTO_SUN, True)): bool,
                     vol.Required(CONF_AUTO_VENTILATE, default=self._options.get(CONF_AUTO_VENTILATE, True)): bool,
+                    vol.Required(CONF_AUTO_COLD, default=self._options.get(CONF_AUTO_COLD, False)): bool,
                     vol.Required(CONF_AUTO_SHADING, default=self._options.get(CONF_AUTO_SHADING, True)): bool,
                     vol.Optional(
                         CONF_MANUAL_OVERRIDE_MINUTES,
