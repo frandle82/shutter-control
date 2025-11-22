@@ -6,6 +6,7 @@ from homeassistant import config_entries
 from homeassistant.core import callback
 from homeassistant.data_entry_flow import FlowResult
 from homeassistant.helpers import selector
+from homeassistant.util import slugify
 
 from .const import (
     CONF_AUTO_BRIGHTNESS,
@@ -47,7 +48,7 @@ from .const import (
     CONF_VENTILATE_POSITION,
     CONF_WIND_LIMIT,
     CONF_WIND_SENSOR,
-    CONF_WINDOW_SENSOR,
+    CONF_WINDOW_SENSORS,
     CONF_WORKDAY_SENSOR,
     DEFAULT_BRIGHTNESS_CLOSE,
     DEFAULT_BRIGHTNESS_OPEN,
@@ -83,12 +84,37 @@ class ShutterControlFlow(config_entries.ConfigFlow, domain=DOMAIN):
     async def async_step_user(self, user_input=None) -> FlowResult:
         if user_input is not None:
             self._data.update(user_input)
-            return await self.async_step_schedule()
+            return await self.async_step_windows()
 
         return self.async_show_form(
             step_id="user",
             data_schema=vol.Schema(
                 {vol.Required(CONF_COVERS): selector.EntitySelector(selector.EntitySelectorConfig(domain=["cover"], multiple=True))}
+            ),
+        )
+
+    async def async_step_windows(self, user_input=None) -> FlowResult:
+        covers: list[str] = self._data.get(CONF_COVERS, [])
+        if user_input is not None:
+            mapping: dict[str, list[str]] = {}
+            for cover in covers:
+                key = self._cover_key(cover)
+                mapping[cover] = user_input.get(key, [])
+            self._data[CONF_WINDOW_SENSORS] = mapping
+            return await self.async_step_schedule()
+
+        return self.async_show_form(
+            step_id="windows",
+            data_schema=vol.Schema(
+                {
+                    vol.Optional(
+                        self._cover_key(cover),
+                        default=self._existing_windows_for_cover(cover),
+                    ): selector.EntitySelector(
+                        selector.EntitySelectorConfig(domain=["binary_sensor"], multiple=True)
+                    )
+                    for cover in covers
+                }
             ),
         )
 
@@ -158,9 +184,6 @@ class ShutterControlFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     vol.Optional(
                         CONF_TEMPERATURE_FORECAST_THRESHOLD, default=DEFAULT_TEMPERATURE_FORECAST_THRESHOLD
                     ): vol.Coerce(float),
-                    vol.Optional(CONF_WINDOW_SENSOR): selector.EntitySelector(
-                        selector.EntitySelectorConfig(domain=["binary_sensor"])
-                    ),
                     vol.Optional(CONF_WIND_SENSOR): selector.EntitySelector(
                         selector.EntitySelectorConfig(domain=["sensor"])
                     ),
@@ -181,6 +204,13 @@ class ShutterControlFlow(config_entries.ConfigFlow, domain=DOMAIN):
             self._data.update(user_input)
         return self.async_create_entry(title="Shutter Control", data=self._data)
 
+    def _cover_key(self, cover: str) -> str:
+        return f"windows_{slugify(cover)}"
+
+    def _existing_windows_for_cover(self, cover: str) -> list[str]:
+        mapping = self._data.get(CONF_WINDOW_SENSORS) or {}
+        return mapping.get(cover, [])
+
     @staticmethod
     @callback
     def async_get_options_flow(config_entry: config_entries.ConfigEntry) -> config_entries.OptionsFlow:
@@ -196,6 +226,10 @@ class ShutterOptionsFlow(config_entries.OptionsFlow):
 
     async def async_step_init(self, user_input=None) -> FlowResult:
         if user_input is not None:
+            mapping: dict[str, list[str]] = {}
+            for cover in self._options.get(CONF_COVERS, []):
+                mapping[cover] = user_input.get(self._cover_key(cover), self._existing_windows_for_cover(cover))
+            user_input[CONF_WINDOW_SENSORS] = mapping
             self._options.update(user_input)
             return self.async_create_entry(title="", data=self._options)
 
@@ -251,9 +285,6 @@ class ShutterOptionsFlow(config_entries.OptionsFlow):
                         CONF_TEMPERATURE_FORECAST_THRESHOLD,
                         default=self._options.get(CONF_TEMPERATURE_FORECAST_THRESHOLD, DEFAULT_TEMPERATURE_FORECAST_THRESHOLD),
                     ): vol.Coerce(float),
-                    vol.Optional(CONF_WINDOW_SENSOR, default=self._options.get(CONF_WINDOW_SENSOR)): selector.EntitySelector(
-                        selector.EntitySelectorConfig(domain=["binary_sensor"])
-                    ),
                     vol.Optional(CONF_WIND_SENSOR, default=self._options.get(CONF_WIND_SENSOR)): selector.EntitySelector(
                         selector.EntitySelectorConfig(domain=["sensor"])
                     ),
@@ -306,6 +337,22 @@ class ShutterOptionsFlow(config_entries.OptionsFlow):
                         CONF_MANUAL_OVERRIDE_MINUTES,
                         default=self._options.get(CONF_MANUAL_OVERRIDE_MINUTES, DEFAULT_MANUAL_OVERRIDE_MINUTES),
                     ): vol.Coerce(int),
+                    **{
+                        vol.Optional(
+                            self._cover_key(cover),
+                            default=self._existing_windows_for_cover(cover),
+                        ): selector.EntitySelector(
+                            selector.EntitySelectorConfig(domain=["binary_sensor"], multiple=True)
+                        )
+                        for cover in self._options.get(CONF_COVERS, [])
+                    },
                 }
             ),
         )
+
+    def _cover_key(self, cover: str) -> str:
+        return f"windows_{slugify(cover)}"
+
+    def _existing_windows_for_cover(self, cover: str) -> list[str]:
+        mapping = self._options.get(CONF_WINDOW_SENSORS) or {}
+        return mapping.get(cover, [])

@@ -51,7 +51,7 @@ from .const import (
     CONF_VENTILATE_POSITION,
     CONF_WIND_LIMIT,
     CONF_WIND_SENSOR,
-    CONF_WINDOW_SENSOR,
+    CONF_WINDOW_SENSORS,
     CONF_WORKDAY_SENSOR,
     DEFAULT_MANUAL_OVERRIDE_MINUTES,
     DEFAULT_TOLERANCE,
@@ -115,6 +115,13 @@ class ControllerManager:
         controller.set_manual_override(minutes)
         return True
 
+    def activate_shading(self, cover: str, minutes: int | None) -> bool:
+        controller = self.controllers.get(cover)
+        if not controller:
+            return False
+        controller.activate_shading(minutes)
+        return True
+
 
 class ShutterController:
     """Translate blueprint-style parameters into runtime cover control."""
@@ -128,6 +135,8 @@ class ShutterController:
         self._manual_until: datetime | None = None
         self._target: float | None = None
         self._reason: str | None = None
+        self._next_open: datetime | None = None
+        self._next_close: datetime | None = None
 
     async def async_setup(self) -> None:
         self._unsubs.append(
@@ -136,18 +145,20 @@ class ShutterController:
         sensor_entities = [
             self.config.get(CONF_BRIGHTNESS_SENSOR),
             self.config.get(CONF_WORKDAY_SENSOR),
-            self.config.get(CONF_WINDOW_SENSOR),
             self.config.get(CONF_WIND_SENSOR),
             self.config.get(CONF_TEMPERATURE_SENSOR_INDOOR),
             self.config.get(CONF_TEMPERATURE_SENSOR_OUTDOOR),
             self.config.get(CONF_RESIDENT_SENSOR),
         ]
+        sensor_entities.extend(self._window_sensors())
         for entity_id in sensor_entities:
             if not entity_id:
                 continue
             self._unsubs.append(
                 async_track_state_change_event(self.hass, [entity_id], self._handle_state_event)
             )
+        self._refresh_next_events(dt_util.utcnow())
+        self._publish_state()
 
     async def async_unload(self) -> None:
         while self._unsubs:
@@ -171,19 +182,21 @@ class ShutterController:
         duration = minutes or self.config.get(CONF_MANUAL_OVERRIDE_MINUTES, DEFAULT_MANUAL_OVERRIDE_MINUTES)
         self._manual_until = dt_util.utcnow() + timedelta(minutes=duration)
         self._reason = "manual_override"
-        async_dispatcher_send(
-            self.hass,
-            SIGNAL_STATE_UPDATED,
-            self.entry.entry_id,
-            self.cover,
-            self._target,
-            self._reason,
-            self._manual_until,
+        self._refresh_next_events(dt_util.utcnow())
+        self._publish_state()
+
+    def activate_shading(self, minutes: int | None = None) -> None:
+        duration = minutes or self.config.get(CONF_MANUAL_OVERRIDE_MINUTES, DEFAULT_MANUAL_OVERRIDE_MINUTES)
+        self._manual_until = dt_util.utcnow() + timedelta(minutes=duration)
+        self.hass.async_create_task(
+            self._set_position(self.config.get(CONF_SHADING_POSITION), "manual_shading")
         )
 
     async def _evaluate(self, trigger: str) -> None:
         now = dt_util.utcnow()
         if self._manual_until and now < self._manual_until:
+            self._refresh_next_events(now)
+            self._publish_state()
             return
 
         workday = self._is_workday()
@@ -232,6 +245,8 @@ class ShutterController:
             if self._sun_allows_close(sun_elevation) and self._brightness_allows_close(brightness):
                 await self._set_position(self.config.get(CONF_CLOSE_POSITION), "scheduled_close")
                 return
+        self._refresh_next_events(now)
+        self._publish_state()
 
     def _sun_allows_open(self, sun_elevation: float | None) -> bool:
         if not self.config.get(CONF_AUTO_SUN):
@@ -303,10 +318,10 @@ class ShutterController:
         return self.hass.states.is_state(workday_entity, STATE_ON)
 
     def _is_window_open(self) -> bool:
-        window_entity = self.config.get(CONF_WINDOW_SENSOR)
-        if not window_entity:
+        window_entities = self._window_sensors()
+        if not window_entities:
             return False
-        return self.hass.states.is_state(window_entity, STATE_ON)
+        return any(self.hass.states.is_state(entity_id, STATE_ON) for entity_id in window_entities)
 
     def _is_resident_sleeping(self) -> bool:
         resident_entity = self.config.get(CONF_RESIDENT_SENSOR)
@@ -337,15 +352,8 @@ class ShutterController:
         )
         self._target = float(position)
         self._reason = reason
-        async_dispatcher_send(
-            self.hass,
-            SIGNAL_STATE_UPDATED,
-            self.entry.entry_id,
-            self.cover,
-            self._target,
-            self._reason,
-            self._manual_until,
-        )
+        self._refresh_next_events(dt_util.utcnow())
+        self._publish_state()
 
     def _current_position(self) -> float | None:
         state = self.hass.states.get(self.cover)
@@ -355,3 +363,48 @@ class ShutterController:
             return float(state.attributes.get("current_position"))
         except (TypeError, ValueError):
             return None
+
+    def _window_sensors(self) -> list[str]:
+        mapping = self.config.get(CONF_WINDOW_SENSORS) or {}
+        sensors = mapping.get(self.cover, [])
+        return sensors or []
+
+    def _refresh_next_events(self, now: datetime) -> None:
+        self._next_open = self._next_time_for_window(
+            _parse_time(
+                self.config.get(
+                    CONF_TIME_UP_EARLY if self._is_workday() else CONF_TIME_UP_EARLY_NON_WORKDAY
+                )
+            ),
+            now,
+        )
+        self._next_close = self._next_time_for_window(
+            _parse_time(
+                self.config.get(
+                    CONF_TIME_DOWN_EARLY if self._is_workday() else CONF_TIME_DOWN_EARLY_NON_WORKDAY
+                )
+            ),
+            now,
+        )
+
+    def _next_time_for_window(self, start: time | None, now: datetime) -> datetime | None:
+        if not start:
+            return None
+        local_now = dt_util.as_local(now)
+        candidate_local = datetime.combine(local_now.date(), start)
+        if candidate_local <= local_now:
+            candidate_local = candidate_local + timedelta(days=1)
+        return dt_util.as_utc(candidate_local)
+
+    def _publish_state(self) -> None:
+        async_dispatcher_send(
+            self.hass,
+            SIGNAL_STATE_UPDATED,
+            self.entry.entry_id,
+            self.cover,
+            self._target,
+            self._reason,
+            self._manual_until,
+            self._next_open,
+            self._next_close,
+        )

@@ -16,6 +16,7 @@ from .const import (
 from .controller import ControllerManager
 
 SERVICE_MANUAL_OVERRIDE = "set_manual_override"
+SERVICE_ACTIVATE_SHADING = "activate_shading"
 
 
 async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
@@ -38,6 +39,27 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
             DOMAIN,
             SERVICE_MANUAL_OVERRIDE,
             handle_manual_override,
+            schema=cv.make_entity_service_schema(
+                {cv.Required(CONF_COVERS): cv.entity_id, cv.Optional(CONF_MANUAL_OVERRIDE_MINUTES): cv.positive_int}
+            ),
+        )
+
+    if SERVICE_ACTIVATE_SHADING not in hass.services.async_services_for_domain(DOMAIN):
+        async def handle_activate_shading(call):
+            cover = call.data[CONF_COVERS]
+            minutes = call.data.get(CONF_MANUAL_OVERRIDE_MINUTES)
+            matched = False
+            for manager in hass.data.get(DOMAIN, {}).values():
+                if isinstance(manager, ControllerManager) and manager.activate_shading(cover, minutes):
+                    matched = True
+                    break
+            if not matched:
+                raise ValueError(f"No controller registered for {cover}")
+
+        hass.services.async_register(
+            DOMAIN,
+            SERVICE_ACTIVATE_SHADING,
+            handle_activate_shading,
             schema=cv.make_entity_service_schema(
                 {cv.Required(CONF_COVERS): cv.entity_id, cv.Optional(CONF_MANUAL_OVERRIDE_MINUTES): cv.positive_int}
             ),

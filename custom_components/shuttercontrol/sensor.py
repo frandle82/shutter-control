@@ -34,6 +34,8 @@ class ShutterControlSensor(SensorEntity):
         self._state: float | None = None
         self._reason: str | None = None
         self._manual_until: datetime | None = None
+        self._next_open: datetime | None = None
+        self._next_close: datetime | None = None
         slug = slugify(cover.split(".")[-1])
         self._attr_unique_id = f"{entry.entry_id}-{slug}-target"
         self._attr_name = f"Shutter target {slug}"  # renamed via translations
@@ -52,6 +54,8 @@ class ShutterControlSensor(SensorEntity):
             "reason": self._reason,
             "manual_override_until": self._manual_until.isoformat() if self._manual_until else None,
             "cover_entity": self.cover,
+            "next_open": self._next_open.isoformat() if self._next_open else None,
+            "next_close": self._next_close.isoformat() if self._next_close else None,
         }
 
     @property
@@ -79,10 +83,14 @@ class ShutterControlSensor(SensorEntity):
         target: float | None,
         reason: str | None,
         manual_until: datetime | None,
+        next_open: datetime | None,
+        next_close: datetime | None,
     ) -> None:
         if entry_id != self.entry.entry_id or cover != self.cover:
             return
         self._state = target
         self._reason = reason
         self._manual_until = manual_until
+        self._next_open = next_open
+        self._next_close = next_close
         self.async_write_ha_state()

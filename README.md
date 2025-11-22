@@ -3,10 +3,10 @@
 This custom integration packages the inputs and algorithms from the **Cover Control Automation (CCA)** blueprint as a dedicated Home Assistant integration. Configure your shutters with a guided setup flow, then let the integration handle time-based opening/closing, brightness and sun elevation guards, ventilation lockout, wind protection, and shading thresholds inspired by the blueprint.
 
 ## Features
-- Multi-step config/options flow that mirrors the blueprint inputs (cover selection, timers, brightness & sun thresholds, shading and safety sensors).
-- Per-cover runtime controller that evaluates CCA-style conditions every minute and on sensor changes.
-- Datapoint sensors that expose the latest commanded target position, reason, and manual override window.
-- Service to pause automation for a cover for a configurable number of minutes (manual override).
+- Multi-step config/options flow that mirrors the blueprint inputs (cover selection, timers, brightness & sun thresholds, shading and safety sensors) plus per-cover window/door contact assignment.
+- Per-cover runtime controller that evaluates CCA-style conditions every minute and on sensor changes, with optional instant shading and ventilation lockout.
+- Datapoint sensors that expose the latest commanded target position, reason, manual override window, and the next planned opening/closing timestamps.
+- Services to pause automation for a cover for a configurable number of minutes or to trigger immediate shading.
 
 ## Installation
 1. Copy the `custom_components/shuttercontrol` folder into your Home Assistant `config/custom_components` directory.
@@ -16,6 +16,7 @@ This custom integration packages the inputs and algorithms from the **Cover Cont
 
 ## Services
 - `shuttercontrol.set_manual_override`: pause automatic control for a selected cover for the configured duration.
+- `shuttercontrol.activate_shading`: send a cover to the shading position immediately and hold it using the override timer.
 
 ## Releases
 Tagged releases ship a zip containing this integration source so you can install without Git. The underlying blueprint remains in `blueprints/automation/cover_control_automation.yaml` for reference to the original logic.

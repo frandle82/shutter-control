@@ -42,7 +42,7 @@ CONF_TEMPERATURE_THRESHOLD = "temperature_threshold"
 CONF_TEMPERATURE_FORECAST_THRESHOLD = "temperature_forecast_threshold"
 
 CONF_RESIDENT_SENSOR = "resident_sensor"
-CONF_WINDOW_SENSOR = "window_sensor"
+CONF_WINDOW_SENSORS = "window_sensors"
 CONF_WIND_SENSOR = "wind_sensor"
 CONF_WIND_LIMIT = "wind_speed_limit"
 
