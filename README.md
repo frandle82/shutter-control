@@ -1,37 +1,25 @@
 # Shutter Control for Home Assistant
 
-This repository provides a Home Assistant custom integration inspired by the ioBroker shuttercontrol adapter. It automates cover entities based on sunrise/sunset, optional presence, and weather protection.
+This custom integration packages the inputs and algorithms from the **Cover Control Automation (CCA)** blueprint as a dedicated Home Assistant integration. Configure your shutters with a guided setup flow, then let the integration handle time-based opening/closing, brightness and sun elevation guards, ventilation lockout, wind protection, and shading thresholds inspired by the blueprint.
 
 ## Features
-- Config flow UI with entity selectors for global defaults and per-cover tuning.
-- Per-cover sunrise/sunset offsets plus open/close target positions.
-- Room-aware cover profiles so multiple shutters can be grouped per room.
-- Optional presence guard to keep shutters untouched when someone is home.
-- Optional weather integration that raises shutters to a safer position when wind speeds exceed a configured limit.
-- Optional window/door sensors prevent shutters from closing on open windows.
-- Services to trigger manual moves or to recalculate scheduled callbacks after changing entities.
+- Multi-step config/options flow that mirrors the blueprint inputs (cover selection, timers, brightness & sun thresholds, shading and safety sensors) plus per-cover window/door contact assignment.
+- Per-cover runtime controller that evaluates CCA-style conditions every minute and on sensor changes, with optional instant shading and ventilation lockout.
+- Datapoint sensors that expose the latest commanded target position, reason, manual override window, and the next planned opening/closing timestamps.
+- Services to pause automation for a cover for a configurable number of minutes or to trigger immediate shading.
 
 ## Installation
-1. Copy the `custom_components/shuttercontrol` directory to your Home Assistant `custom_components` folder (or install via HACS by pointing to this repository).
+1. Copy the `custom_components/shuttercontrol` folder into your Home Assistant `config/custom_components` directory.
 2. Restart Home Assistant.
-3. Add the integration via **Settings → Devices & Services → Add Integration → Shutter Control**.
-
-### Testing releases
-Tagged builds automatically publish a `shuttercontrol.zip` asset that can be downloaded from the GitHub release page. Extract the `custom_components` folder from the archive into your Home Assistant configuration directory to test a specific version. The release asset also bundles the original adapter logic from the `lib/` directory for reference while the Home Assistant port evolves.
-
-## Configuration
-The config flow collects:
-- **Default open/close positions** used when no per-cover override is provided.
-- **Sunrise/Sunset offsets (minutes)** to adjust when shutters move.
-- Optional **presence sensor**, **weather entity**, and **wind speed limit** to pause or adapt movements.
-- At least one **cover entity** with optional custom positions and offsets.
-- A **room name** for grouping multiple shutters per room and optional **window/door sensors** that block closing when a window is open.
-
-After setup, revisit the integration options to add more covers or update automation guards.
+3. Go to **Settings → Devices & Services → Add Integration**, search for **Shutter Control**, and follow the step-by-step wizard to select covers, define time windows, and supply optional sensors for brightness, sun, ventilation, wind, and temperature.
+4. Adjust any values later via the integration's **Configure** options dialog. The same fields stay editable after setup.
 
 ## Services
-- `shuttercontrol.recalculate_targets`: re-registers sunrise/sunset callbacks (helpful after changing entities).
-- `shuttercontrol.move_covers`: immediately moves all configured covers. Provide `target: "open"` or `"close"`.
+- `shuttercontrol.set_manual_override`: pause automatic control for a selected cover for the configured duration.
+- `shuttercontrol.activate_shading`: send a cover to the shading position immediately and hold it using the override timer.
 
-## Notes
-The automation logic intentionally mirrors the most common workflows from the ioBroker adapter while staying native to Home Assistant. Further algorithm refinements—such as shading based on elevation or azimuth—can be added on top of this foundation.
+## Releases
+Tagged releases ship a zip containing this integration source so you can install without Git. The underlying blueprint remains in `blueprints/automation/cover_control_automation.yaml` for reference to the original logic.
+
+## Attribution
+Algorithms and inputs are based on the [Cover Control Automation (CCA) blueprint](https://github.com/hvorragend/ha-blueprints/blob/main/blueprints/automation/cover_control_automation.yaml). Many thanks to the original author for the comprehensive feature set.

@@ -1,10 +1,11 @@
 {
   "domain": "shuttercontrol",
   "name": "Shutter Control",
-  "version": "0.1.1",
+  "version": "0.2.1",
   "documentation": "https://github.com/simatec/ioBroker.shuttercontrol",
   "requirements": [],
   "codeowners": ["@simatec"],
   "config_flow": true,
-  "integration_type": "service"
+  "after_dependencies": ["sun"],
+  "iot_class": "local_polling"
 }

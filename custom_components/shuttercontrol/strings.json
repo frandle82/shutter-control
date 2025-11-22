@@ -79,7 +79,7 @@
   "entity": {
     "sensor": {
       "target": {
-        "name": "Shutter target for {cover}"
+      "name": "Shutter target"
       }
     }
   },
