@@ -1,0 +1,54 @@
+{
+  "title": "Rollladensteuerung",
+  "config": {
+    "step": {
+      "user": {
+        "title": "Globale Einstellungen",
+        "description": "Standardwerte für deine Rollläden festlegen.",
+        "data": {
+          "open_position": "Offen-Position (%)",
+          "close_position": "Geschlossen-Position (%)",
+          "sunrise_offset": "Sonnenaufgang Offset (Minuten)",
+          "sunset_offset": "Sonnenuntergang Offset (Minuten)",
+          "presence_entity": "Präsenz-/Belegungssensor (optional)",
+          "weather_entity": "Wetter-Entity (optional)",
+          "wind_speed_limit": "Windgeschwindigkeitsgrenze (km/h)",
+          "manual_override": "Automatisierung bei manueller Bedienung pausieren"
+        }
+      },
+      "covers": {
+        "title": "Rollläden",
+        "description": "Rollläden hinzufügen und Verhalten anpassen.",
+        "data": {
+          "covers": "Rollläden",
+          "room": "Raum/Bereich",
+          "window_sensors": "Fenster-/Türsensoren"
+        }
+      }
+    },
+    "error": {
+      "no_covers": "Bitte mindestens einen Rollladen auswählen."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Optionen der Rollladensteuerung",
+        "description": "Positionen, Offsets und Sicherheitsgrenzen aktualisieren.",
+        "data": {
+          "covers": "Rollläden",
+          "open_position": "Standard Offen-Position (%)",
+          "close_position": "Standard Geschlossen-Position (%)",
+          "sunrise_offset": "Sonnenaufgang Offset (Minuten)",
+          "sunset_offset": "Sonnenuntergang Offset (Minuten)",
+          "presence_entity": "Präsenz-/Belegungssensor",
+          "weather_entity": "Wetter-Entity",
+          "wind_speed_limit": "Windgeschwindigkeitsgrenze (km/h)",
+          "manual_override": "Automatisierung bei manueller Bedienung pausieren",
+          "room": "Raum/Bereich",
+          "window_sensors": "Fenster-/Türsensoren"
+        }
+      }
+    }
+  }
+}
