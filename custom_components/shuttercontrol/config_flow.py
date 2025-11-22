@@ -35,7 +35,8 @@ SELECT_COVERS_SCHEMA = vol.Schema(
         vol.Required(CONF_COVERS): selector({
             "entity": {"domain": "cover", "multiple": True}
         })
-    }
+    },
+    extra=vol.ALLOW_EXTRA,
 )
 
 
@@ -73,7 +74,8 @@ def _base_settings_schema(defaults: dict[str, Any]) -> vol.Schema:
                 CONF_WIND_SPEED_LIMIT, default=defaults[CONF_WIND_SPEED_LIMIT]
             ): vol.Coerce(float),
             vol.Optional(CONF_MANUAL_OVERRIDE, default=defaults[CONF_MANUAL_OVERRIDE]): bool,
-        }
+        },
+        extra=vol.ALLOW_EXTRA,
     )
 
 
@@ -103,7 +105,8 @@ def _cover_schema(defaults: dict[str, Any]) -> vol.Schema:
                     }
                 }
             ),
-        }
+        },
+        extra=vol.ALLOW_EXTRA,
     )
 
 
