@@ -1,8 +1,8 @@
 {
-  "name": "Shutter Control Blueprint",
+  "name": "Shutter Control",
   "render_readme": true,
-  "homeassistant": "2023.8.0",
+  "homeassistant": "2024.10.0",
   "content_in_root": false,
   "country": ["DE", "US"],
-  "type": "blueprint"
+  "type": "integration"
 }

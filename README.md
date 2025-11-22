@@ -1,26 +1,24 @@
-# Shutter Control Blueprint for Home Assistant
+# Shutter Control for Home Assistant
 
-This repository now distributes the upstream **Cover Control Automation (CCA)** blueprint so you can drive shutters and blinds directly via Home Assistant’s automation UI. All configuration happens through the blueprint’s built-in forms—no additional Python integration code is required.
+This custom integration packages the inputs and algorithms from the **Cover Control Automation (CCA)** blueprint as a dedicated Home Assistant integration. Configure your shutters with a guided setup flow, then let the integration handle time-based opening/closing, brightness and sun elevation guards, ventilation lockout, wind protection, and shading thresholds inspired by the blueprint.
 
 ## Features
-- Ready-to-import blueprint with a comprehensive shutter/blind automation feature set (time windows, sun/brightness logic, ventilation, lockout protection, resident checks, and much more).
-- Native Home Assistant UI for selecting cover entities and all related helpers/sensors the blueprint supports.
-- Packaged release asset that bundles the blueprint for offline installation.
+- Multi-step config/options flow that mirrors the blueprint inputs (cover selection, timers, brightness & sun thresholds, shading and safety sensors).
+- Per-cover runtime controller that evaluates CCA-style conditions every minute and on sensor changes.
+- Datapoint sensors that expose the latest commanded target position, reason, and manual override window.
+- Service to pause automation for a cover for a configurable number of minutes (manual override).
 
 ## Installation
-1. In Home Assistant, navigate to **Settings → Automations & Scenes → Blueprints**.
-2. Click **Import Blueprint** and paste the raw URL below:
+1. Copy the `custom_components/shuttercontrol` folder into your Home Assistant `config/custom_components` directory.
+2. Restart Home Assistant.
+3. Go to **Settings → Devices & Services → Add Integration**, search for **Shutter Control**, and follow the step-by-step wizard to select covers, define time windows, and supply optional sensors for brightness, sun, ventilation, wind, and temperature.
+4. Adjust any values later via the integration's **Configure** options dialog. The same fields stay editable after setup.
 
-   ```
-   https://raw.githubusercontent.com/simatec/ioBroker.shuttercontrol/main/blueprints/automation/cover_control_automation.yaml
-   ```
-
-   Alternatively, download a tagged release asset from this repository and upload the `blueprints/automation/cover_control_automation.yaml` file manually.
-
-3. Create a new automation from the imported blueprint and follow the UI prompts to configure your shutters, sensors, and schedules.
+## Services
+- `shuttercontrol.set_manual_override`: pause automatic control for a selected cover for the configured duration.
 
 ## Releases
-When a tag is pushed, GitHub Actions builds a `shuttercontrol.zip` that contains the blueprint file plus this README and the license for easy distribution.
+Tagged releases ship a zip containing this integration source so you can install without Git. The underlying blueprint remains in `blueprints/automation/cover_control_automation.yaml` for reference to the original logic.
 
 ## Attribution
-The blueprint is maintained by [hvorragend](https://github.com/hvorragend/ha-blueprints). Please consult the linked community thread and LICENSE inside the blueprint header for usage guidance and support links.
+Algorithms and inputs are based on the [Cover Control Automation (CCA) blueprint](https://github.com/hvorragend/ha-blueprints/blob/main/blueprints/automation/cover_control_automation.yaml). Many thanks to the original author for the comprehensive feature set.
