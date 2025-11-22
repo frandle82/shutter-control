@@ -14,6 +14,9 @@ This repository provides a Home Assistant custom integration inspired by the ioB
 2. Restart Home Assistant.
 3. Add the integration via **Settings → Devices & Services → Add Integration → Shutter Control**.
 
+### Testing releases
+Tagged builds automatically publish a `shuttercontrol.zip` asset that can be downloaded from the GitHub release page. Extract the `custom_components` folder from the archive into your Home Assistant configuration directory to test a specific version.
+
 ## Configuration
 The config flow collects:
 - **Default open/close positions** used when no per-cover override is provided.
