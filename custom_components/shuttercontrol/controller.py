@@ -391,7 +391,7 @@ class ShutterController:
         if not start:
             return None
         local_now = dt_util.as_local(now)
-        candidate_local = datetime.combine(local_now.date(), start)
+        candidate_local = datetime.combine(local_now.date(), start, local_now.tzinfo)
         if candidate_local <= local_now:
             candidate_local = candidate_local + timedelta(days=1)
         return dt_util.as_utc(candidate_local)
