@@ -1,0 +1,65 @@
+{
+  "title": "Shutter Control",
+  "config": {
+    "step": {
+      "user": {
+        "title": "Select shutters",
+        "description": "Choose the shutters/blinds that should be managed first.",
+        "data": {
+          "covers": "Shutter or blind entities"
+        }
+      },
+      "base_settings": {
+        "title": "Default behaviour",
+        "description": "Configure the ioBroker-equivalent defaults for movement and weather/presence checks.",
+        "data": {
+          "open_position": "Open position (%)",
+          "close_position": "Close position (%)",
+          "sunrise_offset": "Sunrise offset (minutes)",
+          "sunset_offset": "Sunset offset (minutes)",
+          "presence_entity": "Presence/occupancy entity (optional)",
+          "weather_entity": "Weather entity (optional)",
+          "wind_speed_limit": "Wind speed limit (km/h)",
+          "manual_override": "Disable automation while manual override is active"
+        }
+      },
+      "cover_settings": {
+        "title": "Shutter tuning",
+        "description": "Fine-tune each shutter with offsets, positions, and window sensors. Values can be edited later via options.",
+        "data": {
+          "covers": "Configured shutters",
+          "window_sensors": "Window/door sensors"
+        }
+      }
+    },
+    "error": {
+      "no_covers": "Please add at least one cover."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Default settings",
+        "description": "Adjust the defaults before editing individual shutters.",
+        "data": {
+          "open_position": "Default open position (%)",
+          "close_position": "Default close position (%)",
+          "sunrise_offset": "Sunrise offset (minutes)",
+          "sunset_offset": "Sunset offset (minutes)",
+          "presence_entity": "Presence/occupancy entity",
+          "weather_entity": "Weather entity",
+          "wind_speed_limit": "Wind speed limit (km/h)",
+          "manual_override": "Disable automation while manual override is active"
+        }
+      },
+      "cover_settings": {
+        "title": "Shutter tuning",
+        "description": "Update the per-shutter offsets, positions, and sensors.",
+        "data": {
+          "covers": "Configured shutters",
+          "window_sensors": "Window/door sensors"
+        }
+      }
+    }
+  }
+}
