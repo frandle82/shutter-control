@@ -1,4 +1,4 @@
-"Core controller logic derived from the Cover Control Automation blueprint."""
+"""Core controller logic derived from the Cover Control Automation blueprint."""
 from __future__ import annotations
 
 from datetime import datetime, timedelta, time
@@ -290,7 +290,7 @@ class ShutterController:
             )
             return
 
-       if self._auto_enabled(CONF_AUTO_SHADING):
+        if self._auto_enabled(CONF_AUTO_SHADING):
             shading_active = self._reason in {"shading", "manual_shading"}
             shading_allowed = self._shading_conditions(
                 sun_azimuth, sun_elevation, brightness
@@ -324,7 +324,7 @@ class ShutterController:
                     "shading",
                 )
                 return
-
+        
         if self._auto_enabled(CONF_AUTO_SUN) and self._sun_allows_close(sun_elevation):
             if self._brightness_allows_close(brightness):
                 await self._set_position(
@@ -490,7 +490,7 @@ class ShutterController:
             value_key = CONF_TIME_UP_WORKDAY if is_up else CONF_TIME_DOWN_WORKDAY
         else:
             value_key = CONF_TIME_UP_NON_WORKDAY if is_up else CONF_TIME_DOWN_NON_WORKDAY
-
+        
         entity_key = self._time_entity_map.get(value_key)
         if entity_key:
             entity_value = self._time_from_entity(entity_key)
@@ -602,8 +602,6 @@ class ShutterController:
             self.cover,
             self._target,
             self._reason,
-
-
             self._manual_until,
             self._next_open,
             self._next_close,
