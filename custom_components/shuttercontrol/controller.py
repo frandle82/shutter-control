@@ -13,27 +13,39 @@ from homeassistant.util import dt as dt_util
 
 from .const import (
     CONF_AUTO_BRIGHTNESS,
+    CONF_AUTO_BRIGHTNESS_ENTITY,
     CONF_AUTO_COLD,
+    CONF_AUTO_COLD_ENTITY,
     CONF_AUTO_DOWN,
+    CONF_AUTO_DOWN_ENTITY,
     CONF_AUTO_SHADING,
+    CONF_AUTO_SHADING_ENTITY,
     CONF_AUTO_SUN,
+    CONF_AUTO_SUN_ENTITY,
     CONF_AUTO_UP,
+    CONF_AUTO_UP_ENTITY,
     CONF_AUTO_VENTILATE,
+    CONF_AUTO_VENTILATE_ENTITY,
     CONF_AUTO_WIND,
+    CONF_AUTO_WIND_ENTITY,
     CONF_COLD_PROTECTION_FORECAST_SENSOR,
     CONF_COLD_PROTECTION_THRESHOLD,
     CONF_BRIGHTNESS_CLOSE_BELOW,
     CONF_BRIGHTNESS_OPEN_ABOVE,
     CONF_BRIGHTNESS_SENSOR,
     CONF_CLOSE_POSITION,
+    CONF_CLOSE_POSITION_ENTITY,
     CONF_COVERS,
     CONF_MANUAL_OVERRIDE_MINUTES,
     CONF_OPEN_POSITION,
+    CONF_OPEN_POSITION_ENTITY,
     CONF_POSITION_TOLERANCE,
+    CONF_POSITION_TOLERANCE_ENTITY,
     CONF_RESIDENT_SENSOR,
     CONF_SHADING_BRIGHTNESS_END,
     CONF_SHADING_BRIGHTNESS_START,
     CONF_SHADING_POSITION,
+    CONF_SHADING_POSITION_ENTITY,
     CONF_SUN_AZIMUTH_END,
     CONF_SUN_AZIMUTH_START,
     CONF_SUN_ELEVATION_CLOSE,
@@ -45,10 +57,15 @@ from .const import (
     CONF_TEMPERATURE_SENSOR_OUTDOOR,
     CONF_TEMPERATURE_THRESHOLD,
     CONF_TIME_DOWN_NON_WORKDAY,
+    CONF_TIME_DOWN_NON_WORKDAY_ENTITY,
     CONF_TIME_DOWN_WORKDAY,
+    CONF_TIME_DOWN_WORKDAY_ENTITY,
     CONF_TIME_UP_NON_WORKDAY,
+    CONF_TIME_UP_NON_WORKDAY_ENTITY,
     CONF_TIME_UP_WORKDAY,
+    CONF_TIME_UP_WORKDAY_ENTITY,
     CONF_VENTILATE_POSITION,
+    CONF_VENTILATE_POSITION_ENTITY,
     CONF_WIND_LIMIT,
     CONF_WIND_SENSOR,
     CONF_WINDOW_SENSORS,
@@ -146,6 +163,29 @@ class ShutterController:
         self._reason: str | None = None
         self._next_open: datetime | None = None
         self._next_close: datetime | None = None
+        self._auto_entity_map = {
+            CONF_AUTO_UP: CONF_AUTO_UP_ENTITY,
+            CONF_AUTO_DOWN: CONF_AUTO_DOWN_ENTITY,
+            CONF_AUTO_BRIGHTNESS: CONF_AUTO_BRIGHTNESS_ENTITY,
+            CONF_AUTO_SUN: CONF_AUTO_SUN_ENTITY,
+            CONF_AUTO_VENTILATE: CONF_AUTO_VENTILATE_ENTITY,
+            CONF_AUTO_SHADING: CONF_AUTO_SHADING_ENTITY,
+            CONF_AUTO_COLD: CONF_AUTO_COLD_ENTITY,
+            CONF_AUTO_WIND: CONF_AUTO_WIND_ENTITY,
+        }
+        self._time_entity_map = {
+            CONF_TIME_UP_WORKDAY: CONF_TIME_UP_WORKDAY_ENTITY,
+            CONF_TIME_DOWN_WORKDAY: CONF_TIME_DOWN_WORKDAY_ENTITY,
+            CONF_TIME_UP_NON_WORKDAY: CONF_TIME_UP_NON_WORKDAY_ENTITY,
+            CONF_TIME_DOWN_NON_WORKDAY: CONF_TIME_DOWN_NON_WORKDAY_ENTITY,
+        }
+        self._position_entity_map = {
+            CONF_OPEN_POSITION: CONF_OPEN_POSITION_ENTITY,
+            CONF_CLOSE_POSITION: CONF_CLOSE_POSITION_ENTITY,
+            CONF_VENTILATE_POSITION: CONF_VENTILATE_POSITION_ENTITY,
+            CONF_SHADING_POSITION: CONF_SHADING_POSITION_ENTITY,
+            CONF_POSITION_TOLERANCE: CONF_POSITION_TOLERANCE_ENTITY,
+        }
 
     async def async_setup(self) -> None:
         self._unsubs.append(
@@ -250,14 +290,48 @@ class ShutterController:
             )
             return
 
-        if self._auto_enabled(CONF_AUTO_SHADING) and self._shading_conditions(
-            sun_azimuth, sun_elevation, brightness
-        ):
-            await self._set_position(
-                self._position_value(CONF_SHADING_POSITION, DEFAULT_SHADING_POSITION),
-                "shading",
+       if self._auto_enabled(CONF_AUTO_SHADING):
+            shading_active = self._reason in {"shading", "manual_shading"}
+            shading_allowed = self._shading_conditions(
+                sun_azimuth, sun_elevation, brightness
             )
-            return
+            if shading_active and not shading_allowed:
+                if (
+                    self._auto_enabled(CONF_AUTO_DOWN)
+                    and self._sun_allows_close(sun_elevation)
+                    and self._brightness_allows_close(brightness)
+                ):
+                    await self._set_position(
+                        self._position_value(
+                            CONF_CLOSE_POSITION, DEFAULT_CLOSE_POSITION
+                        ),
+                        "shading_end_close",
+                    )
+                    return
+                if (
+                    self._auto_enabled(CONF_AUTO_UP)
+                    and self._sun_allows_open(sun_elevation)
+                    and self._brightness_allows_open(brightness)
+                ):
+                    await self._set_position(
+                        self._position_value(CONF_OPEN_POSITION, DEFAULT_OPEN_POSITION),
+                        "shading_end_open",
+                    )
+                    return
+            if shading_allowed:
+                await self._set_position(
+                    self._position_value(CONF_SHADING_POSITION, DEFAULT_SHADING_POSITION),
+                    "shading",
+                )
+                return
+        
+        if self._auto_enabled(CONF_AUTO_SUN) and self._sun_allows_close(sun_elevation):
+            if self._brightness_allows_close(brightness):
+                await self._set_position(
+                    self._position_value(CONF_CLOSE_POSITION, DEFAULT_CLOSE_POSITION),
+                    "sun_close",
+                )
+                return
 
         if self._auto_enabled(CONF_AUTO_UP) and up_due:
             if self._sun_allows_open(sun_elevation) and self._brightness_allows_open(brightness):
@@ -266,6 +340,9 @@ class ShutterController:
                     "scheduled_open",
                 )
                 return
+            self._next_open = now + timedelta(minutes=1)
+            self._publish_state()
+            return
 
         if self._auto_enabled(CONF_AUTO_DOWN) and down_due:
             if self._sun_allows_close(sun_elevation) and self._brightness_allows_close(brightness):
@@ -274,6 +351,10 @@ class ShutterController:
                     "scheduled_close",
                 )
                 return
+            self._next_close = now + timedelta(minutes=1)
+            self._publish_state()
+            return
+
         self._refresh_next_events(now)
         self._publish_state()
 
@@ -409,6 +490,12 @@ class ShutterController:
             value_key = CONF_TIME_UP_WORKDAY if is_up else CONF_TIME_DOWN_WORKDAY
         else:
             value_key = CONF_TIME_UP_NON_WORKDAY if is_up else CONF_TIME_DOWN_NON_WORKDAY
+        
+        entity_key = self._time_entity_map.get(value_key)
+        if entity_key:
+            entity_value = self._time_from_entity(entity_key)
+            if entity_value:
+                return entity_value
 
         return _parse_time(self.config.get(value_key))
 
@@ -418,6 +505,11 @@ class ShutterController:
         return now >= target
 
     def _position_value(self, key: str, default: float) -> float | None:
+        entity_key = self._position_entity_map.get(key)
+        if entity_key:
+            entity_value = self._float_from_entity(entity_key)
+            if entity_value is not None:
+                return entity_value
         raw_value = self.config.get(key, default)
         try:
             return float(raw_value)
@@ -425,12 +517,34 @@ class ShutterController:
             return default
 
     def _auto_enabled(self, config_key: str) -> bool:
+        entity_key = self._auto_entity_map.get(config_key)
+        if entity_key:
+            entity_id = self.config.get(entity_key)
+            if entity_id and self.hass.states.get(entity_id) is not None:
+                return self.hass.states.is_state(entity_id, STATE_ON)
         return bool(self.config.get(config_key))
+
+    def _float_from_entity(self, entity_key: str) -> float | None:
+        entity_id = self.config.get(entity_key)
+        if not entity_id:
+            return None
+        return _float_state(self.hass, entity_id)
+
+    def _time_from_entity(self, entity_key: str) -> time | None:
+        entity_id = self.config.get(entity_key)
+        if not entity_id:
+            return None
+        state = self.hass.states.get(entity_id)
+        if state is None:
+            return None
+        return _parse_time(state.state)
 
     async def _set_position(self, position: float | None, reason: str) -> None:
         if position is None:
             return
-        tolerance = float(self.config.get(CONF_POSITION_TOLERANCE, DEFAULT_TOLERANCE))
+        tolerance = float(
+            self._position_value(CONF_POSITION_TOLERANCE, DEFAULT_TOLERANCE)
+        )
         current = self._current_position()
         if current is not None and abs(current - float(position)) <= tolerance and self._reason == reason:
             return
