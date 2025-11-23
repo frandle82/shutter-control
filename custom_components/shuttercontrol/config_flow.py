@@ -25,6 +25,7 @@ from .const import (
     CONF_CLOSE_POSITION,
     CONF_COVERS,
     CONF_MANUAL_OVERRIDE_MINUTES,
+    CONF_NAME,
     CONF_OPEN_POSITION,
     CONF_POSITION_TOLERANCE,
     CONF_RESIDENT_SENSOR,
@@ -53,6 +54,7 @@ from .const import (
     DEFAULT_BRIGHTNESS_CLOSE,
     DEFAULT_BRIGHTNESS_OPEN,
     DEFAULT_MANUAL_OVERRIDE_MINUTES,
+    DEFAULT_NAME,
     DEFAULT_OPEN_POSITION,
     DEFAULT_SHADING_AZIMUTH_END,
     DEFAULT_SHADING_AZIMUTH_START,
@@ -94,7 +96,12 @@ class ShutterControlFlow(config_entries.ConfigFlow, domain=DOMAIN):
         return self.async_show_form(
             step_id="user",
             data_schema=vol.Schema(
-                {vol.Required(CONF_COVERS): selector.EntitySelector(selector.EntitySelectorConfig(domain=["cover"], multiple=True))}
+                {
+                    vol.Optional(CONF_NAME, default=DEFAULT_NAME): str,
+                    vol.Required(CONF_COVERS): selector.EntitySelector(
+                        selector.EntitySelectorConfig(domain=["cover"], multiple=True)
+                    ),
+                }
             ),
         )
 
@@ -211,7 +218,8 @@ class ShutterControlFlow(config_entries.ConfigFlow, domain=DOMAIN):
     async def async_step_finalize(self, user_input=None) -> FlowResult:
         if user_input:
             self._data.update(user_input)
-        return self.async_create_entry(title="Shutter Control", data=self._data)
+        name = self._data.get(CONF_NAME, DEFAULT_NAME).strip() or DEFAULT_NAME
+        return self.async_create_entry(title=name, data=self._data)
 
     def _cover_key(self, cover: str) -> str:
         state = self.hass.states.get(cover)
@@ -245,11 +253,13 @@ class ShutterOptionsFlow(config_entries.OptionsFlow):
 
     async def async_step_init(self, user_input=None) -> FlowResult:
         if user_input is not None:
+            name = user_input.pop(CONF_NAME, self.config_entry.title).strip() or DEFAULT_NAME
             mapping: dict[str, list[str]] = {}
             for cover in self._options.get(CONF_COVERS, []):
                 mapping[cover] = user_input.get(self._cover_key(cover), self._existing_windows_for_cover(cover))
             user_input[CONF_WINDOW_SENSORS] = mapping
-            self._options.update(user_input)
+            self._options.update({CONF_NAME: name} | user_input)
+            await self.hass.config_entries.async_update_entry(self.config_entry, title=name)
             return self.async_create_entry(title="", data=self._options)
 
         auto_brightness = bool(self._options.get(CONF_AUTO_BRIGHTNESS, True))
@@ -260,6 +270,7 @@ class ShutterOptionsFlow(config_entries.OptionsFlow):
         auto_wind = bool(self._options.get(CONF_AUTO_WIND, True))
 
         schema: dict = {
+            vol.Optional(CONF_NAME, default=self._options.get(CONF_NAME, self.config_entry.title or DEFAULT_NAME)): str,
             vol.Required(CONF_COVERS, default=self._options.get(CONF_COVERS, [])): selector.EntitySelector(
                 selector.EntitySelectorConfig(domain=["cover"], multiple=True)
             ),
