@@ -6,30 +6,41 @@ from homeassistant import config_entries
 from homeassistant.core import callback
 from homeassistant.data_entry_flow import FlowResult
 from homeassistant.helpers import selector
-from homeassistant.util import slugify
 
 from .const import (
     CONF_AUTO_BRIGHTNESS,
+    CONF_AUTO_BRIGHTNESS_ENTITY,
     CONF_AUTO_COLD,
+    CONF_AUTO_COLD_ENTITY,
     CONF_AUTO_DOWN,
+    CONF_AUTO_DOWN_ENTITY,
     CONF_AUTO_SHADING,
+    CONF_AUTO_SHADING_ENTITY,
     CONF_AUTO_SUN,
+    CONF_AUTO_SUN_ENTITY,
     CONF_AUTO_UP,
+    CONF_AUTO_UP_ENTITY,
     CONF_AUTO_VENTILATE,
+    CONF_AUTO_VENTILATE_ENTITY,
+    CONF_AUTO_WIND,
+    CONF_AUTO_WIND_ENTITY,
     CONF_COLD_PROTECTION_FORECAST_SENSOR,
     CONF_COLD_PROTECTION_THRESHOLD,
     CONF_BRIGHTNESS_CLOSE_BELOW,
     CONF_BRIGHTNESS_OPEN_ABOVE,
     CONF_BRIGHTNESS_SENSOR,
     CONF_CLOSE_POSITION,
+    CONF_CLOSE_POSITION_ENTITY,
     CONF_COVERS,
     CONF_MANUAL_OVERRIDE_MINUTES,
     CONF_OPEN_POSITION,
+    CONF_OPEN_POSITION_ENTITY,
     CONF_POSITION_TOLERANCE,
     CONF_RESIDENT_SENSOR,
     CONF_SHADING_BRIGHTNESS_END,
     CONF_SHADING_BRIGHTNESS_START,
     CONF_SHADING_POSITION,
+    CONF_SHADING_POSITION_ENTITY,
     CONF_SUN_AZIMUTH_END,
     CONF_SUN_AZIMUTH_START,
     CONF_SUN_ELEVATION_CLOSE,
@@ -40,15 +51,16 @@ from .const import (
     CONF_TEMPERATURE_SENSOR_INDOOR,
     CONF_TEMPERATURE_SENSOR_OUTDOOR,
     CONF_TEMPERATURE_THRESHOLD,
-    CONF_TIME_DOWN_EARLY,
-    CONF_TIME_DOWN_EARLY_NON_WORKDAY,
-    CONF_TIME_DOWN_LATE,
-    CONF_TIME_DOWN_LATE_NON_WORKDAY,
-    CONF_TIME_UP_EARLY,
-    CONF_TIME_UP_EARLY_NON_WORKDAY,
-    CONF_TIME_UP_LATE,
-    CONF_TIME_UP_LATE_NON_WORKDAY,
+    CONF_TIME_DOWN_NON_WORKDAY,
+    CONF_TIME_DOWN_NON_WORKDAY_ENTITY,
+    CONF_TIME_DOWN_WORKDAY,
+    CONF_TIME_DOWN_WORKDAY_ENTITY,
+    CONF_TIME_UP_NON_WORKDAY,
+    CONF_TIME_UP_NON_WORKDAY_ENTITY,
+    CONF_TIME_UP_WORKDAY,
+    CONF_TIME_UP_WORKDAY_ENTITY,
     CONF_VENTILATE_POSITION,
+    CONF_VENTILATE_POSITION_ENTITY,
     CONF_WIND_LIMIT,
     CONF_WIND_SENSOR,
     CONF_WINDOW_SENSORS,
@@ -72,6 +84,10 @@ from .const import (
     DEFAULT_TOLERANCE,
     DEFAULT_VENTILATE_POSITION,
     DEFAULT_WIND_LIMIT,
+    DEFAULT_TIME_DOWN_NON_WORKDAY,
+    DEFAULT_TIME_DOWN_WORKDAY,
+    DEFAULT_TIME_UP_NON_WORKDAY,
+    DEFAULT_TIME_UP_WORKDAY,
     DOMAIN,
 )
 from .const import DEFAULT_CLOSE_POSITION  # separate import for line length
@@ -131,19 +147,43 @@ class ShutterControlFlow(config_entries.ConfigFlow, domain=DOMAIN):
             step_id="schedule",
             data_schema=vol.Schema(
                 {
+                    vol.Optional(CONF_OPEN_POSITION_ENTITY): selector.EntitySelector(
+                        selector.EntitySelectorConfig(domain=["input_number", "number"])
+                    ),
                     vol.Required(CONF_OPEN_POSITION, default=DEFAULT_OPEN_POSITION): int,
+                    vol.Optional(CONF_CLOSE_POSITION_ENTITY): selector.EntitySelector(
+                        selector.EntitySelectorConfig(domain=["input_number", "number"])
+                    ),
                     vol.Required(CONF_CLOSE_POSITION, default=DEFAULT_CLOSE_POSITION): int,
+                    vol.Optional(CONF_VENTILATE_POSITION_ENTITY): selector.EntitySelector(
+                        selector.EntitySelectorConfig(domain=["input_number", "number"])
+                    ),
                     vol.Required(CONF_VENTILATE_POSITION, default=DEFAULT_VENTILATE_POSITION): int,
+                    vol.Optional(CONF_SHADING_POSITION_ENTITY): selector.EntitySelector(
+                        selector.EntitySelectorConfig(domain=["input_number", "number"])
+                    ),
                     vol.Required(CONF_SHADING_POSITION, default=DEFAULT_SHADING_POSITION): int,
                     vol.Required(CONF_POSITION_TOLERANCE, default=DEFAULT_TOLERANCE): int,
-                    vol.Required(CONF_TIME_UP_EARLY, default="06:00:00"): selector.TimeSelector(),
-                    vol.Required(CONF_TIME_UP_LATE, default="08:00:00"): selector.TimeSelector(),
-                    vol.Required(CONF_TIME_UP_EARLY_NON_WORKDAY, default="07:30:00"): selector.TimeSelector(),
-                    vol.Required(CONF_TIME_UP_LATE_NON_WORKDAY, default="09:30:00"): selector.TimeSelector(),
-                    vol.Required(CONF_TIME_DOWN_EARLY, default="18:00:00"): selector.TimeSelector(),
-                    vol.Required(CONF_TIME_DOWN_LATE, default="23:00:00"): selector.TimeSelector(),
-                    vol.Required(CONF_TIME_DOWN_EARLY_NON_WORKDAY, default="18:30:00"): selector.TimeSelector(),
-                    vol.Required(CONF_TIME_DOWN_LATE_NON_WORKDAY, default="23:30:00"): selector.TimeSelector(),
+                    vol.Optional(CONF_TIME_UP_WORKDAY_ENTITY): selector.EntitySelector(
+                        selector.EntitySelectorConfig(domain=["input_datetime"])
+                    ),
+                    vol.Required(CONF_TIME_UP_WORKDAY, default=DEFAULT_TIME_UP_WORKDAY): selector.TimeSelector(),
+                    vol.Optional(CONF_TIME_UP_NON_WORKDAY_ENTITY): selector.EntitySelector(
+                        selector.EntitySelectorConfig(domain=["input_datetime"])
+                    ),
+                    vol.Required(
+                        CONF_TIME_UP_NON_WORKDAY, default=DEFAULT_TIME_UP_NON_WORKDAY
+                    ): selector.TimeSelector(),
+                    vol.Optional(CONF_TIME_DOWN_WORKDAY_ENTITY): selector.EntitySelector(
+                        selector.EntitySelectorConfig(domain=["input_datetime"])
+                    ),
+                    vol.Required(CONF_TIME_DOWN_WORKDAY, default=DEFAULT_TIME_DOWN_WORKDAY): selector.TimeSelector(),
+                    vol.Optional(CONF_TIME_DOWN_NON_WORKDAY_ENTITY): selector.EntitySelector(
+                        selector.EntitySelectorConfig(domain=["input_datetime"])
+                    ),
+                    vol.Required(
+                        CONF_TIME_DOWN_NON_WORKDAY, default=DEFAULT_TIME_DOWN_NON_WORKDAY
+                    ): selector.TimeSelector(),
                     vol.Optional(CONF_WORKDAY_SENSOR): selector.EntitySelector(
                         selector.EntitySelectorConfig(domain=["binary_sensor", "sensor"])
                     ),
@@ -199,13 +239,38 @@ class ShutterControlFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     ),
                     vol.Optional(CONF_WIND_LIMIT, default=DEFAULT_WIND_LIMIT): vol.Coerce(float),
                     vol.Optional(CONF_MANUAL_OVERRIDE_MINUTES, default=DEFAULT_MANUAL_OVERRIDE_MINUTES): vol.Coerce(int),
+                    vol.Optional(CONF_AUTO_UP_ENTITY): selector.EntitySelector(
+                        selector.EntitySelectorConfig(domain=["input_boolean"])
+                    ),
                     vol.Required(CONF_AUTO_UP, default=True): bool,
+                    vol.Optional(CONF_AUTO_DOWN_ENTITY): selector.EntitySelector(
+                        selector.EntitySelectorConfig(domain=["input_boolean"])
+                    ),
                     vol.Required(CONF_AUTO_DOWN, default=True): bool,
+                    vol.Optional(CONF_AUTO_BRIGHTNESS_ENTITY): selector.EntitySelector(
+                        selector.EntitySelectorConfig(domain=["input_boolean"])
+                    ),
                     vol.Required(CONF_AUTO_BRIGHTNESS, default=True): bool,
+                    vol.Optional(CONF_AUTO_SUN_ENTITY): selector.EntitySelector(
+                        selector.EntitySelectorConfig(domain=["input_boolean"])
+                    ),
                     vol.Required(CONF_AUTO_SUN, default=True): bool,
+                    vol.Optional(CONF_AUTO_VENTILATE_ENTITY): selector.EntitySelector(
+                        selector.EntitySelectorConfig(domain=["input_boolean"])
+                    ),
                     vol.Required(CONF_AUTO_VENTILATE, default=True): bool,
+                    vol.Optional(CONF_AUTO_COLD_ENTITY): selector.EntitySelector(
+                        selector.EntitySelectorConfig(domain=["input_boolean"])
+                    ),
                     vol.Required(CONF_AUTO_COLD, default=False): bool,
+                    vol.Optional(CONF_AUTO_SHADING_ENTITY): selector.EntitySelector(
+                        selector.EntitySelectorConfig(domain=["input_boolean"])
+                    ),
                     vol.Required(CONF_AUTO_SHADING, default=True): bool,
+                    vol.Optional(CONF_AUTO_WIND_ENTITY): selector.EntitySelector(
+                        selector.EntitySelectorConfig(domain=["input_boolean"])
+                    ),
+                    vol.Required(CONF_AUTO_WIND, default=True): bool,
                 }
             ),
         )
@@ -216,7 +281,9 @@ class ShutterControlFlow(config_entries.ConfigFlow, domain=DOMAIN):
         return self.async_create_entry(title="Shutter Control", data=self._data)
 
     def _cover_key(self, cover: str) -> str:
-        return f"windows_{slugify(cover)}"
+        state = self.hass.states.get(cover)
+        friendly_name = state.name if state else cover.split(".")[-1]
+        return f"Fenster-/Türkontakt für {friendly_name}"
 
     def _existing_windows_for_cover(self, cover: str) -> list[str]:
         mapping = self._data.get(CONF_WINDOW_SENSORS) or {}
@@ -249,16 +316,33 @@ class ShutterOptionsFlow(config_entries.OptionsFlow):
         auto_ventilate = bool(self._options.get(CONF_AUTO_VENTILATE, True))
         auto_cold = bool(self._options.get(CONF_AUTO_COLD, False))
         auto_shading = bool(self._options.get(CONF_AUTO_SHADING, True))
+        auto_wind = bool(self._options.get(CONF_AUTO_WIND, True))
 
         schema: dict = {
             vol.Required(CONF_COVERS, default=self._options.get(CONF_COVERS, [])): selector.EntitySelector(
                 selector.EntitySelectorConfig(domain=["cover"], multiple=True)
             ),
+            vol.Optional(
+                CONF_OPEN_POSITION_ENTITY,
+                default=self._options.get(CONF_OPEN_POSITION_ENTITY),
+            ): selector.EntitySelector(selector.EntitySelectorConfig(domain=["input_number", "number"])),
             vol.Required(CONF_OPEN_POSITION, default=self._options.get(CONF_OPEN_POSITION, DEFAULT_OPEN_POSITION)): int,
+            vol.Optional(
+                CONF_CLOSE_POSITION_ENTITY,
+                default=self._options.get(CONF_CLOSE_POSITION_ENTITY),
+            ): selector.EntitySelector(selector.EntitySelectorConfig(domain=["input_number", "number"])),
             vol.Required(CONF_CLOSE_POSITION, default=self._options.get(CONF_CLOSE_POSITION, DEFAULT_CLOSE_POSITION)): int,
+            vol.Optional(
+                CONF_VENTILATE_POSITION_ENTITY,
+                default=self._options.get(CONF_VENTILATE_POSITION_ENTITY),
+            ): selector.EntitySelector(selector.EntitySelectorConfig(domain=["input_number", "number"])),
             vol.Required(
                 CONF_VENTILATE_POSITION, default=self._options.get(CONF_VENTILATE_POSITION, DEFAULT_VENTILATE_POSITION)
             ): int,
+            vol.Optional(
+                CONF_SHADING_POSITION_ENTITY,
+                default=self._options.get(CONF_SHADING_POSITION_ENTITY),
+            ): selector.EntitySelector(selector.EntitySelectorConfig(domain=["input_number", "number"])),
             vol.Required(CONF_SHADING_POSITION, default=self._options.get(CONF_SHADING_POSITION, DEFAULT_SHADING_POSITION)): int,
             vol.Required(
                 CONF_POSITION_TOLERANCE,
@@ -275,47 +359,72 @@ class ShutterOptionsFlow(config_entries.OptionsFlow):
                 selector.EntitySelectorConfig(domain=["binary_sensor", "switch"])
             ),
             vol.Optional(
-                CONF_TIME_UP_EARLY,
-                default=self._options.get(CONF_TIME_UP_EARLY, "06:00:00"),
+                CONF_TIME_UP_WORKDAY_ENTITY,
+                default=self._options.get(CONF_TIME_UP_WORKDAY_ENTITY),
+            ): selector.EntitySelector(selector.EntitySelectorConfig(domain=["input_datetime"])),
+            vol.Optional(
+                CONF_TIME_UP_WORKDAY,
+                default=self._options.get(CONF_TIME_UP_WORKDAY, DEFAULT_TIME_UP_WORKDAY),
             ): selector.TimeSelector(),
             vol.Optional(
-                CONF_TIME_UP_LATE,
-                default=self._options.get(CONF_TIME_UP_LATE, "08:00:00"),
+                CONF_TIME_UP_NON_WORKDAY_ENTITY,
+                default=self._options.get(CONF_TIME_UP_NON_WORKDAY_ENTITY),
+            ): selector.EntitySelector(selector.EntitySelectorConfig(domain=["input_datetime"])),
+            vol.Optional(
+                CONF_TIME_UP_NON_WORKDAY,
+                default=self._options.get(CONF_TIME_UP_NON_WORKDAY, DEFAULT_TIME_UP_NON_WORKDAY),
             ): selector.TimeSelector(),
             vol.Optional(
-                CONF_TIME_UP_EARLY_NON_WORKDAY,
-                default=self._options.get(CONF_TIME_UP_EARLY_NON_WORKDAY, "07:30:00"),
+                CONF_TIME_DOWN_WORKDAY_ENTITY,
+                default=self._options.get(CONF_TIME_DOWN_WORKDAY_ENTITY),
+            ): selector.EntitySelector(selector.EntitySelectorConfig(domain=["input_datetime"])),
+            vol.Optional(
+                CONF_TIME_DOWN_WORKDAY,
+                default=self._options.get(CONF_TIME_DOWN_WORKDAY, DEFAULT_TIME_DOWN_WORKDAY),
             ): selector.TimeSelector(),
             vol.Optional(
-                CONF_TIME_UP_LATE_NON_WORKDAY,
-                default=self._options.get(CONF_TIME_UP_LATE_NON_WORKDAY, "09:30:00"),
-            ): selector.TimeSelector(),
+                CONF_TIME_DOWN_NON_WORKDAY_ENTITY,
+                default=self._options.get(CONF_TIME_DOWN_NON_WORKDAY_ENTITY),
+            ): selector.EntitySelector(selector.EntitySelectorConfig(domain=["input_datetime"])),
             vol.Optional(
-                CONF_TIME_DOWN_EARLY,
-                default=self._options.get(CONF_TIME_DOWN_EARLY, "18:00:00"),
-            ): selector.TimeSelector(),
-            vol.Optional(
-                CONF_TIME_DOWN_LATE,
-                default=self._options.get(CONF_TIME_DOWN_LATE, "23:00:00"),
-            ): selector.TimeSelector(),
-            vol.Optional(
-                CONF_TIME_DOWN_EARLY_NON_WORKDAY,
-                default=self._options.get(CONF_TIME_DOWN_EARLY_NON_WORKDAY, "18:30:00"),
-            ): selector.TimeSelector(),
-            vol.Optional(
-                CONF_TIME_DOWN_LATE_NON_WORKDAY,
-                default=self._options.get(CONF_TIME_DOWN_LATE_NON_WORKDAY, "23:30:00"),
+                CONF_TIME_DOWN_NON_WORKDAY,
+                default=self._options.get(CONF_TIME_DOWN_NON_WORKDAY, DEFAULT_TIME_DOWN_NON_WORKDAY),
             ): selector.TimeSelector(),
             vol.Optional(CONF_WORKDAY_SENSOR, default=self._options.get(CONF_WORKDAY_SENSOR)): selector.EntitySelector(
                 selector.EntitySelectorConfig(domain=["binary_sensor", "sensor"])
             ),
+            vol.Optional(
+                CONF_AUTO_UP_ENTITY, default=self._options.get(CONF_AUTO_UP_ENTITY)
+            ): selector.EntitySelector(selector.EntitySelectorConfig(domain=["input_boolean"])),
             vol.Required(CONF_AUTO_UP, default=self._options.get(CONF_AUTO_UP, True)): bool,
+            vol.Optional(
+                CONF_AUTO_DOWN_ENTITY, default=self._options.get(CONF_AUTO_DOWN_ENTITY)
+            ): selector.EntitySelector(selector.EntitySelectorConfig(domain=["input_boolean"])),
             vol.Required(CONF_AUTO_DOWN, default=self._options.get(CONF_AUTO_DOWN, True)): bool,
+            vol.Optional(
+                CONF_AUTO_BRIGHTNESS_ENTITY, default=self._options.get(CONF_AUTO_BRIGHTNESS_ENTITY)
+            ): selector.EntitySelector(selector.EntitySelectorConfig(domain=["input_boolean"])),
             vol.Required(CONF_AUTO_BRIGHTNESS, default=self._options.get(CONF_AUTO_BRIGHTNESS, True)): bool,
+            vol.Optional(
+                CONF_AUTO_SUN_ENTITY, default=self._options.get(CONF_AUTO_SUN_ENTITY)
+            ): selector.EntitySelector(selector.EntitySelectorConfig(domain=["input_boolean"])),
             vol.Required(CONF_AUTO_SUN, default=self._options.get(CONF_AUTO_SUN, True)): bool,
+            vol.Optional(
+                CONF_AUTO_VENTILATE_ENTITY, default=self._options.get(CONF_AUTO_VENTILATE_ENTITY)
+            ): selector.EntitySelector(selector.EntitySelectorConfig(domain=["input_boolean"])),
             vol.Required(CONF_AUTO_VENTILATE, default=self._options.get(CONF_AUTO_VENTILATE, True)): bool,
+            vol.Optional(
+                CONF_AUTO_COLD_ENTITY, default=self._options.get(CONF_AUTO_COLD_ENTITY)
+            ): selector.EntitySelector(selector.EntitySelectorConfig(domain=["input_boolean"])),
             vol.Required(CONF_AUTO_COLD, default=self._options.get(CONF_AUTO_COLD, False)): bool,
+            vol.Optional(
+                CONF_AUTO_SHADING_ENTITY, default=self._options.get(CONF_AUTO_SHADING_ENTITY)
+            ): selector.EntitySelector(selector.EntitySelectorConfig(domain=["input_boolean"])),
             vol.Required(CONF_AUTO_SHADING, default=self._options.get(CONF_AUTO_SHADING, True)): bool,
+            vol.Optional(
+                CONF_AUTO_WIND_ENTITY, default=self._options.get(CONF_AUTO_WIND_ENTITY)
+            ): selector.EntitySelector(selector.EntitySelectorConfig(domain=["input_boolean"])),
+            vol.Required(CONF_AUTO_WIND, default=auto_wind): bool,
             vol.Optional(
                 CONF_MANUAL_OVERRIDE_MINUTES,
                 default=self._options.get(CONF_MANUAL_OVERRIDE_MINUTES, DEFAULT_MANUAL_OVERRIDE_MINUTES),
