@@ -1,6 +1,9 @@
 """Numbers to control shutter positions."""
 from __future__ import annotations
 
+from datetime import datetime, timedelta
+from typing import Any
+
 from homeassistant.components.number import NumberEntity, NumberMode
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import PERCENTAGE
@@ -13,9 +16,14 @@ from .const import (
     CONF_OPEN_POSITION,
     CONF_SHADING_POSITION,
     CONF_VENTILATE_POSITION,
+    CONF_NAME,
+    DEFAULT_NAME,
     DOMAIN,
 )
 from .controller import ControllerManager
+
+def _instance_name(entry: ConfigEntry) -> str:
+    return entry.options.get(CONF_NAME, entry.data.get(CONF_NAME, entry.title or DEFAULT_NAME))
 
 
 async def async_setup_entry(
@@ -46,6 +54,7 @@ class ShutterPositionNumber(NumberEntity):
     _attr_native_max_value = 100
     _attr_native_step = 1
     _attr_mode = NumberMode.BOX
+    _attr_has_entity_name = True
 
     def __init__(self, entry: ConfigEntry, key: str, translation_key: str) -> None:
         self.entry = entry
@@ -59,7 +68,7 @@ class ShutterPositionNumber(NumberEntity):
     def device_info(self) -> DeviceInfo:
         return DeviceInfo(
             identifiers={(DOMAIN, self.entry.entry_id)},
-            name="Shutter Control",
+            name=_instance_name(self.entry),
             manufacturer="CCA-derived",
         )
 
@@ -75,4 +84,8 @@ class ShutterPositionNumber(NumberEntity):
 
     async def async_set_native_value(self, value: float) -> None:
         options = {**self.entry.options, self._key: float(value)}
-        await self.hass.config_entries.async_update_entry(self.entry, options=options)
+        update_result = self.hass.config_entries.async_update_entry(
+            self.entry, options=options
+        )
+        if inspect.isawaitable(update_result):
+            await update_result
