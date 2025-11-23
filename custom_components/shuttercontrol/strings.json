@@ -6,6 +6,7 @@
         "title": "Select covers",
         "description": "Choose the shutters or blinds that will be automated.",
         "data": {
+          "name": "Instance name",
           "covers": "Covers"
         }
       },
@@ -89,6 +90,7 @@
         "title": "Update shutter settings",
         "description": "Adjust blueprint-derived thresholds, sensors, and timing.",
         "data": {
+          "name": "Instance name",
           "open_position_entity": "Position helper for opening",
           "open_position": "Open position fallback",
           "close_position_entity": "Position helper for closing",
@@ -135,19 +137,19 @@
   "entity": {
     "sensor": {
       "target": {
-        "name": "Shutter target"
+        "name": "Target"
       },
       "current_position": {
         "name": "Current position"
       },
       "next_open": {
-        "name": "Next opening"
+        "name": "Next open"
       },
       "next_close": {
-        "name": "Next closing"
+        "name": "Next close"
       },
       "shading_active": {
-        "name": "Shading active"
+        "name": "Shading"
       }
     },
     "number": {
@@ -180,25 +182,25 @@
     },
     "switch": {
       "auto_up": {
-        "name": "Automatic opening"
+        "name": "Auto open"
       },
       "auto_down": {
-        "name": "Automatic closing"
+        "name": "Auto close"
       },
       "auto_brightness": {
-        "name": "Brightness automation"
+        "name": "Brightness auto"
       },
       "auto_sun": {
-        "name": "Sun elevation automation"
+        "name": "Sun auto"
       },
       "auto_ventilate": {
-        "name": "Ventilation/lockout"
+        "name": "Ventilation lock"
       },
       "auto_shading": {
-        "name": "Sun shading"
+        "name": "Shading"
       },
       "auto_cold": {
-        "name": "Cold protection"
+        "name": "Cold protect"
       }
     }
   },
