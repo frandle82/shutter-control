@@ -12,9 +12,11 @@ from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.util import slugify
 
-from .const import CONF_AUTO_SHADING, DOMAIN, SIGNAL_STATE_UPDATED
+from .const import CONF_AUTO_SHADING, CONF_NAME, DEFAULT_NAME, DOMAIN, SIGNAL_STATE_UPDATED
 from .controller import ControllerManager
 
+def _instance_name(entry: ConfigEntry) -> str:
+    return entry.options.get(CONF_NAME, entry.data.get(CONF_NAME, entry.title or DEFAULT_NAME))
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback) -> None:
     manager: ControllerManager = hass.data[DOMAIN][entry.entry_id]
@@ -37,6 +39,7 @@ class ShutterBaseSensor(SensorEntity):
     """Common helpers for per-cover sensors."""
 
     _attr_should_poll = False
+    _attr_has_entity_name = True
 
     def __init__(self, entry: ConfigEntry, cover: str, suffix: str, translation_key: str) -> None:
         self.entry = entry
@@ -51,7 +54,6 @@ class ShutterBaseSensor(SensorEntity):
         self._shading_active: bool = False
         slug = slugify(cover.split(".")[-1])
         self._attr_unique_id = f"{entry.entry_id}-{slug}-{suffix}"
-        self._attr_name = f"Shutter {translation_key} {slug}"  # replaced via translations
         self._attr_translation_key = translation_key
         self._attr_translation_placeholders = {"cover": slug}
 
@@ -72,7 +74,7 @@ class ShutterBaseSensor(SensorEntity):
     def device_info(self) -> DeviceInfo:
         return DeviceInfo(
             identifiers={(DOMAIN, self.entry.entry_id)},
-            name="Shutter Control",
+            name=_instance_name(self.entry),
             manufacturer="CCA-derived",
         )
 
