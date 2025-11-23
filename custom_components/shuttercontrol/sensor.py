@@ -77,6 +77,7 @@ class ShutterBaseSensor(SensorEntity):
         )
 
     async def async_added_to_hass(self) -> None:
+        self._attr_translation_placeholders = {"cover": self._cover_label()}
         self.async_on_remove(
             async_dispatcher_connect(
                 self.hass,
@@ -84,6 +85,13 @@ class ShutterBaseSensor(SensorEntity):
                 self._handle_state_update,
             )
         )
+
+    @callback
+    def _cover_label(self) -> str:
+        state = self.hass.states.get(self.cover)
+        if state and state.name:
+            return state.name
+        return self.cover.split(".")[-1]
 
     @callback
     def _handle_state_update(

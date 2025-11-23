@@ -13,14 +13,20 @@ CONF_VENTILATE_POSITION = "ventilate_position"
 CONF_SHADING_POSITION = "shading_position"
 CONF_POSITION_TOLERANCE = "position_tolerance"
 
-CONF_TIME_UP_EARLY = "time_up_early"
-CONF_TIME_UP_LATE = "time_up_late"
-CONF_TIME_UP_EARLY_NON_WORKDAY = "time_up_early_non_workday"
-CONF_TIME_UP_LATE_NON_WORKDAY = "time_up_late_non_workday"
-CONF_TIME_DOWN_EARLY = "time_down_early"
-CONF_TIME_DOWN_LATE = "time_down_late"
-CONF_TIME_DOWN_EARLY_NON_WORKDAY = "time_down_early_non_workday"
-CONF_TIME_DOWN_LATE_NON_WORKDAY = "time_down_late_non_workday"
+CONF_OPEN_POSITION_ENTITY = "open_position_entity"
+CONF_CLOSE_POSITION_ENTITY = "close_position_entity"
+CONF_VENTILATE_POSITION_ENTITY = "ventilate_position_entity"
+CONF_SHADING_POSITION_ENTITY = "shading_position_entity"
+
+CONF_TIME_UP_WORKDAY = "time_up_workday"
+CONF_TIME_UP_NON_WORKDAY = "time_up_non_workday"
+CONF_TIME_DOWN_WORKDAY = "time_down_workday"
+CONF_TIME_DOWN_NON_WORKDAY = "time_down_non_workday"
+
+CONF_TIME_UP_WORKDAY_ENTITY = "time_up_workday_entity"
+CONF_TIME_UP_NON_WORKDAY_ENTITY = "time_up_non_workday_entity"
+CONF_TIME_DOWN_WORKDAY_ENTITY = "time_down_workday_entity"
+CONF_TIME_DOWN_NON_WORKDAY_ENTITY = "time_down_non_workday_entity"
 
 CONF_WORKDAY_SENSOR = "workday_sensor"
 CONF_BRIGHTNESS_SENSOR = "brightness_sensor"
@@ -53,6 +59,17 @@ CONF_AUTO_SUN = "auto_sun_enabled"
 CONF_AUTO_VENTILATE = "auto_ventilate_enabled"
 CONF_AUTO_SHADING = "auto_shading_enabled"
 CONF_AUTO_COLD = "auto_cold_protection_enabled"
+CONF_AUTO_WIND = "auto_wind_protection_enabled"
+
+CONF_AUTO_UP_ENTITY = "auto_up_enabled_entity"
+CONF_AUTO_DOWN_ENTITY = "auto_down_enabled_entity"
+CONF_AUTO_BRIGHTNESS_ENTITY = "auto_brightness_enabled_entity"
+CONF_AUTO_SUN_ENTITY = "auto_sun_enabled_entity"
+CONF_AUTO_VENTILATE_ENTITY = "auto_ventilate_enabled_entity"
+CONF_AUTO_SHADING_ENTITY = "auto_shading_enabled_entity"
+CONF_AUTO_COLD_ENTITY = "auto_cold_protection_enabled_entity"
+CONF_AUTO_WIND_ENTITY = "auto_wind_protection_enabled_entity"
+
 CONF_COLD_PROTECTION_THRESHOLD = "cold_protection_temperature"
 CONF_COLD_PROTECTION_FORECAST_SENSOR = "cold_protection_forecast_sensor"
 
@@ -81,3 +98,8 @@ DEFAULT_TEMPERATURE_FORECAST_THRESHOLD = 27.0
 DEFAULT_COLD_PROTECTION_THRESHOLD = 5.0
 DEFAULT_WIND_LIMIT = 10.0
 DEFAULT_MANUAL_OVERRIDE_MINUTES = 90
+
+DEFAULT_TIME_UP_WORKDAY = "06:00:00"
+DEFAULT_TIME_UP_NON_WORKDAY = "07:30:00"
+DEFAULT_TIME_DOWN_WORKDAY = "18:00:00"
+DEFAULT_TIME_DOWN_NON_WORKDAY = "18:30:00"
