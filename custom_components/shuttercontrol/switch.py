@@ -15,6 +15,8 @@ from .const import (
     CONF_AUTO_SUN,
     CONF_AUTO_UP,
     CONF_AUTO_VENTILATE,
+    CONF_NAME,
+    DEFAULT_NAME,
     DOMAIN,
 )
 
@@ -29,6 +31,15 @@ AUTOMATION_TOGGLES: tuple[tuple[str, str], ...] = (
     (CONF_AUTO_COLD, "auto_cold"),
 )
 
+TOGGLE_ICONS: dict[str, str] = {
+    CONF_AUTO_UP: "mdi:arrow-up-bold-circle",
+    CONF_AUTO_DOWN: "mdi:arrow-down-bold-circle",
+    CONF_AUTO_BRIGHTNESS: "mdi:brightness-auto",
+    CONF_AUTO_SUN: "mdi:weather-sunny",
+    CONF_AUTO_VENTILATE: "mdi:fan-auto",
+    CONF_AUTO_SHADING: "mdi:theme-light-dark",
+    CONF_AUTO_COLD: "mdi:snowflake-variant",
+}
 
 async def async_setup_entry(
     hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback
@@ -53,13 +64,13 @@ class AutomationToggleSwitch(SwitchEntity):
         self._key = key
         self._attr_unique_id = f"{entry.entry_id}-{key}"
         self._attr_translation_key = translation_key
-        self._attr_name = f"Shutter {translation_key}"  # replaced via translations
+        self._attr_icon = TOGGLE_ICONS.get(key)
 
     @property
     def device_info(self) -> DeviceInfo:
         return DeviceInfo(
             identifiers={(DOMAIN, self.entry.entry_id)},
-            name="Shutter Control",
+            name=entry.options.get(CONF_NAME, entry.data.get(CONF_NAME, entry.title or DEFAULT_NAME)),
             manufacturer="CCA-derived",
         )
 
