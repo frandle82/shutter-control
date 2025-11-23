@@ -4,9 +4,11 @@ from __future__ import annotations
 from homeassistant.const import Platform
 
 DOMAIN = "shuttercontrol"
+CONF_NAME = "name"
+DEFAULT_NAME = "Cover Control"
 PLATFORMS: list[Platform] = [
-        Platform.SENSOR, 
-        Platform.NUMBER, 
+        Platform.SENSOR,
+        Platform.NUMBER,
         Platform.TIME,
         Platform.SWITCH
     ]
