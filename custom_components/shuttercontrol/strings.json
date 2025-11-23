@@ -149,6 +149,57 @@
       "shading_active": {
         "name": "Shading active"
       }
+    },
+    "number": {
+      "open_position": {
+        "name": "Open position"
+      },
+      "close_position": {
+        "name": "Close position"
+      },
+      "ventilate_position": {
+        "name": "Ventilation position"
+      },
+      "shading_position": {
+        "name": "Shading position"
+      }
+    },
+    "time": {
+      "time_up_workday": {
+        "name": "Workday open time"
+      },
+      "time_down_workday": {
+        "name": "Workday close time"
+      },
+      "time_up_non_workday": {
+        "name": "Non workday open time"
+      },
+      "time_down_non_workday": {
+        "name": "Non workday close time"
+      }
+    },
+    "switch": {
+      "auto_up": {
+        "name": "Automatic opening"
+      },
+      "auto_down": {
+        "name": "Automatic closing"
+      },
+      "auto_brightness": {
+        "name": "Brightness automation"
+      },
+      "auto_sun": {
+        "name": "Sun elevation automation"
+      },
+      "auto_ventilate": {
+        "name": "Ventilation/lockout"
+      },
+      "auto_shading": {
+        "name": "Sun shading"
+      },
+      "auto_cold": {
+        "name": "Cold protection"
+      }
     }
   },
   "services": {
