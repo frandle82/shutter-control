@@ -13,38 +13,27 @@ from homeassistant.util import dt as dt_util
 
 from .const import (
     CONF_AUTO_BRIGHTNESS,
-    CONF_AUTO_BRIGHTNESS_ENTITY,
     CONF_AUTO_COLD,
-    CONF_AUTO_COLD_ENTITY,
     CONF_AUTO_DOWN,
-    CONF_AUTO_DOWN_ENTITY,
     CONF_AUTO_SHADING,
-    CONF_AUTO_SHADING_ENTITY,
     CONF_AUTO_SUN,
-    CONF_AUTO_SUN_ENTITY,
     CONF_AUTO_UP,
-    CONF_AUTO_UP_ENTITY,
     CONF_AUTO_VENTILATE,
-    CONF_AUTO_VENTILATE_ENTITY,
     CONF_AUTO_WIND,
-    CONF_AUTO_WIND_ENTITY,
     CONF_COLD_PROTECTION_FORECAST_SENSOR,
     CONF_COLD_PROTECTION_THRESHOLD,
     CONF_BRIGHTNESS_CLOSE_BELOW,
     CONF_BRIGHTNESS_OPEN_ABOVE,
     CONF_BRIGHTNESS_SENSOR,
     CONF_CLOSE_POSITION,
-    CONF_CLOSE_POSITION_ENTITY,
     CONF_COVERS,
     CONF_MANUAL_OVERRIDE_MINUTES,
     CONF_OPEN_POSITION,
-    CONF_OPEN_POSITION_ENTITY,
     CONF_POSITION_TOLERANCE,
     CONF_RESIDENT_SENSOR,
     CONF_SHADING_BRIGHTNESS_END,
     CONF_SHADING_BRIGHTNESS_START,
     CONF_SHADING_POSITION,
-    CONF_SHADING_POSITION_ENTITY,
     CONF_SUN_AZIMUTH_END,
     CONF_SUN_AZIMUTH_START,
     CONF_SUN_ELEVATION_CLOSE,
@@ -56,15 +45,10 @@ from .const import (
     CONF_TEMPERATURE_SENSOR_OUTDOOR,
     CONF_TEMPERATURE_THRESHOLD,
     CONF_TIME_DOWN_NON_WORKDAY,
-    CONF_TIME_DOWN_NON_WORKDAY_ENTITY,
     CONF_TIME_DOWN_WORKDAY,
-    CONF_TIME_DOWN_WORKDAY_ENTITY,
     CONF_TIME_UP_NON_WORKDAY,
-    CONF_TIME_UP_NON_WORKDAY_ENTITY,
     CONF_TIME_UP_WORKDAY,
-    CONF_TIME_UP_WORKDAY_ENTITY,
     CONF_VENTILATE_POSITION,
-    CONF_VENTILATE_POSITION_ENTITY,
     CONF_WIND_LIMIT,
     CONF_WIND_SENSOR,
     CONF_WINDOW_SENSORS,
@@ -238,71 +222,55 @@ class ShutterController:
 
         wind_speed = _float_state(self.hass, self.config.get(CONF_WIND_SENSOR))
         wind_limit = float(self.config.get(CONF_WIND_LIMIT, DEFAULT_WIND_LIMIT))
-        if self._auto_enabled(CONF_AUTO_WIND, CONF_AUTO_WIND_ENTITY) and wind_speed is not None and wind_speed >= wind_limit:
+        if self._auto_enabled(CONF_AUTO_WIND) and wind_speed is not None and wind_speed >= wind_limit:
             await self._set_position(
-                self._position_value(
-                    CONF_OPEN_POSITION, CONF_OPEN_POSITION_ENTITY, DEFAULT_OPEN_POSITION
-                ),
+                self._position_value(CONF_OPEN_POSITION, DEFAULT_OPEN_POSITION),
                 "wind_protection",
             )
             return
 
         if self._is_resident_sleeping():
             await self._set_position(
-                self._position_value(
-                    CONF_CLOSE_POSITION, CONF_CLOSE_POSITION_ENTITY, DEFAULT_CLOSE_POSITION
-                ),
+                self._position_value(CONF_CLOSE_POSITION, DEFAULT_CLOSE_POSITION),
                 "resident_asleep",
             )
             return
 
-        if self._auto_enabled(CONF_AUTO_VENTILATE, CONF_AUTO_VENTILATE_ENTITY) and self._is_window_open():
+        if self._auto_enabled(CONF_AUTO_VENTILATE) and self._is_window_open():
             await self._set_position(
-                self._position_value(
-                    CONF_VENTILATE_POSITION,
-                    CONF_VENTILATE_POSITION_ENTITY,
-                    DEFAULT_VENTILATE_POSITION,
-                ),
+                self._position_value(CONF_VENTILATE_POSITION, DEFAULT_VENTILATE_POSITION),
                 "ventilation",
             )
             return
 
-        if self._auto_enabled(CONF_AUTO_COLD, CONF_AUTO_COLD_ENTITY) and self._cold_protection_needed(sun_elevation):
+        if self._auto_enabled(CONF_AUTO_COLD) and self._cold_protection_needed(sun_elevation):
             await self._set_position(
-                self._position_value(
-                    CONF_CLOSE_POSITION, CONF_CLOSE_POSITION_ENTITY, DEFAULT_CLOSE_POSITION
-                ),
+                self._position_value(CONF_CLOSE_POSITION, DEFAULT_CLOSE_POSITION),
                 "cold_protection",
             )
             return
 
-        if self._auto_enabled(CONF_AUTO_SHADING, CONF_AUTO_SHADING_ENTITY) and self._shading_conditions(
+        if self._auto_enabled(CONF_AUTO_SHADING) and self._shading_conditions(
             sun_azimuth, sun_elevation, brightness
         ):
             await self._set_position(
-                self._position_value(
-                    CONF_SHADING_POSITION, CONF_SHADING_POSITION_ENTITY, DEFAULT_SHADING_POSITION
-                ),
+                self._position_value(CONF_SHADING_POSITION, DEFAULT_SHADING_POSITION),
                 "shading",
             )
             return
 
-        if self._auto_enabled(CONF_AUTO_UP, CONF_AUTO_UP_ENTITY) and up_due:
+        if self._auto_enabled(CONF_AUTO_UP) and up_due:
             if self._sun_allows_open(sun_elevation) and self._brightness_allows_open(brightness):
                 await self._set_position(
-                    self._position_value(
-                        CONF_OPEN_POSITION, CONF_OPEN_POSITION_ENTITY, DEFAULT_OPEN_POSITION
-                    ),
+                    self._position_value(CONF_OPEN_POSITION, DEFAULT_OPEN_POSITION),
                     "scheduled_open",
                 )
                 return
 
-        if self._auto_enabled(CONF_AUTO_DOWN, CONF_AUTO_DOWN_ENTITY) and down_due:
+        if self._auto_enabled(CONF_AUTO_DOWN) and down_due:
             if self._sun_allows_close(sun_elevation) and self._brightness_allows_close(brightness):
                 await self._set_position(
-                    self._position_value(
-                        CONF_CLOSE_POSITION, CONF_CLOSE_POSITION_ENTITY, DEFAULT_CLOSE_POSITION
-                    ),
+                    self._position_value(CONF_CLOSE_POSITION, DEFAULT_CLOSE_POSITION),
                     "scheduled_close",
                 )
                 return
@@ -310,26 +278,26 @@ class ShutterController:
         self._publish_state()
 
     def _sun_allows_open(self, sun_elevation: float | None) -> bool:
-        if not self._auto_enabled(CONF_AUTO_SUN, CONF_AUTO_SUN_ENTITY):
+        if not self._auto_enabled(CONF_AUTO_SUN):
             return True
         if sun_elevation is None:
             return False
         return sun_elevation >= float(self.config.get(CONF_SUN_ELEVATION_OPEN))
 
     def _sun_allows_close(self, sun_elevation: float | None) -> bool:
-        if not self._auto_enabled(CONF_AUTO_SUN, CONF_AUTO_SUN_ENTITY):
+        if not self._auto_enabled(CONF_AUTO_SUN):
             return True
         if sun_elevation is None:
             return False
         return sun_elevation <= float(self.config.get(CONF_SUN_ELEVATION_CLOSE))
 
     def _brightness_allows_open(self, brightness: float | None) -> bool:
-        if not self._auto_enabled(CONF_AUTO_BRIGHTNESS, CONF_AUTO_BRIGHTNESS_ENTITY) or brightness is None:
+        if not self._auto_enabled(CONF_AUTO_BRIGHTNESS) or brightness is None:
             return True
         return brightness >= float(self.config.get(CONF_BRIGHTNESS_OPEN_ABOVE))
 
     def _brightness_allows_close(self, brightness: float | None) -> bool:
-        if not self._auto_enabled(CONF_AUTO_BRIGHTNESS, CONF_AUTO_BRIGHTNESS_ENTITY) or brightness is None:
+        if not self._auto_enabled(CONF_AUTO_BRIGHTNESS) or brightness is None:
             return True
         return brightness <= float(self.config.get(CONF_BRIGHTNESS_CLOSE_BELOW))
 
@@ -439,22 +407,8 @@ class ShutterController:
     def _time_setting(self, workday: bool, is_up: bool) -> time | None:
         if workday:
             value_key = CONF_TIME_UP_WORKDAY if is_up else CONF_TIME_DOWN_WORKDAY
-            entity_key = (
-                CONF_TIME_UP_WORKDAY_ENTITY if is_up else CONF_TIME_DOWN_WORKDAY_ENTITY
-            )
         else:
             value_key = CONF_TIME_UP_NON_WORKDAY if is_up else CONF_TIME_DOWN_NON_WORKDAY
-            entity_key = (
-                CONF_TIME_UP_NON_WORKDAY_ENTITY if is_up else CONF_TIME_DOWN_NON_WORKDAY_ENTITY
-            )
-
-        entity_id = self.config.get(entity_key)
-        if entity_id:
-            entity_state = self.hass.states.get(entity_id)
-            if entity_state:
-                parsed = _parse_time(entity_state.state)
-                if parsed:
-                    return parsed
 
         return _parse_time(self.config.get(value_key))
 
@@ -463,22 +417,14 @@ class ShutterController:
             return False
         return now >= target
 
-    def _position_value(self, key: str, entity_key: str, default: float) -> float | None:
-        entity_id = self.config.get(entity_key)
-        if entity_id:
-            entity_value = _float_state(self.hass, entity_id)
-            if entity_value is not None:
-                return entity_value
+    def _position_value(self, key: str, default: float) -> float | None:
         raw_value = self.config.get(key, default)
         try:
             return float(raw_value)
         except (TypeError, ValueError):
             return default
 
-    def _auto_enabled(self, config_key: str, entity_key: str) -> bool:
-        entity_id = self.config.get(entity_key)
-        if entity_id:
-            return self.hass.states.is_state(entity_id, STATE_ON)
+    def _auto_enabled(self, config_key: str) -> bool:
         return bool(self.config.get(config_key))
 
     async def _set_position(self, position: float | None, reason: str) -> None:
@@ -533,7 +479,7 @@ class ShutterController:
 
     def _publish_state(self) -> None:
         current_position = self._current_position()
-        shading_enabled = self._auto_enabled(CONF_AUTO_SHADING, CONF_AUTO_SHADING_ENTITY)
+        shading_enabled = self._auto_enabled(CONF_AUTO_SHADING)
         shading_active = shading_enabled and self._reason in {"shading", "manual_shading"}
         async_dispatcher_send(
             self.hass,
