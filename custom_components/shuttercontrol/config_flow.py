@@ -147,7 +147,7 @@ class ShutterControlFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     vol.Required(CONF_TIME_UP_WORKDAY, default=DEFAULT_TIME_UP_WORKDAY): selector.TimeSelector(),
                     vol.Required(CONF_TIME_DOWN_WORKDAY, default=DEFAULT_TIME_DOWN_WORKDAY): selector.TimeSelector(),
                     vol.Required(CONF_TIME_DOWN_NON_WORKDAY, default=DEFAULT_TIME_DOWN_NON_WORKDAY): selector.TimeSelector(),
-                    ol.Required(CONF_TIME_UP_NON_WORKDAY, default=DEFAULT_TIME_UP_NON_WORKDAY): selector.TimeSelector(),
+                    vol.Required(CONF_TIME_UP_NON_WORKDAY, default=DEFAULT_TIME_UP_NON_WORKDAY): selector.TimeSelector(),
                     vol.Optional(CONF_WORKDAY_SENSOR): selector.EntitySelector(
                         selector.EntitySelectorConfig(domain=["binary_sensor", "sensor"])
                     ),
