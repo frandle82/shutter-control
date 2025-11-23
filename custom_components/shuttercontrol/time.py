@@ -16,10 +16,14 @@ from .const import (
     CONF_TIME_UP_NON_WORKDAY,
     CONF_TIME_DOWN_WORKDAY,
     CONF_TIME_DOWN_NON_WORKDAY,
+    CONF_NAME,
+    DEFAULT_NAME,
     DOMAIN,
 )
 from .controller import ControllerManager
 
+def _instance_name(entry: ConfigEntry) -> str:
+    return entry.options.get(CONF_NAME, entry.data.get(CONF_NAME, entry.title or DEFAULT_NAME))
 
 async def async_setup_entry(
     hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback
@@ -43,6 +47,7 @@ class ShutterTimeEntity(TimeEntity):
     """Time entity that stores schedule windows in config entry options."""
 
     _attr_should_poll = False
+    _attr_has_entity_name = True
 
     def __init__(self, entry: ConfigEntry, key: str, translation_key: str) -> None:
         self.entry = entry
@@ -56,7 +61,7 @@ class ShutterTimeEntity(TimeEntity):
     def device_info(self) -> DeviceInfo:
         return DeviceInfo(
             identifiers={(DOMAIN, self.entry.entry_id)},
-            name="Shutter Control",
+            name=_instance_name(self.entry),
             manufacturer="CCA-derived",
         )
 
