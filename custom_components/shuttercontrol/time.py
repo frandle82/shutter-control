@@ -1,6 +1,7 @@
 """Time entities to configure open/close windows."""
 from __future__ import annotations
 
+import inspect
 from datetime import time
 
 from homeassistant.components.time import TimeEntity
@@ -71,4 +72,8 @@ class ShutterTimeEntity(TimeEntity):
 
     async def async_set_value(self, value: time) -> None:
         options = {**self.entry.options, self._key: value.isoformat()}
-        await self.hass.config_entries.async_update_entry(self.entry, options=options)
+        update_result = self.hass.config_entries.async_update_entry(
+            self.entry, options=options
+        )
+        if inspect.isawaitable(update_result):
+            await update_result
