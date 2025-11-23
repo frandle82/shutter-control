@@ -58,6 +58,7 @@ class AutomationToggleSwitch(SwitchEntity):
     """Switch to enable or disable automation features."""
 
     _attr_should_poll = False
+    _attr_has_entity_name = True
 
     def __init__(self, entry: ConfigEntry, key: str, translation_key: str) -> None:
         self.entry = entry
