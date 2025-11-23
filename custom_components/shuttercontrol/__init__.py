@@ -7,6 +7,7 @@ from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.typing import ConfigType
 import voluptuous as vol
 
+from .config_entities import ensure_config_entities
 from .const import (
     CONF_COVERS,
     CONF_MANUAL_OVERRIDE_MINUTES,
@@ -71,6 +72,14 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Load a config entry."""
+    created_entities = await ensure_config_entities(
+        hass, entry.entry_id, {**entry.data, **entry.options}
+    )
+    if created_entities:
+        hass.config_entries.async_update_entry(
+            entry, options={**entry.options, **created_entities}
+        )
+
     manager = ControllerManager(hass, entry)
     await manager.async_setup()
     hass.data[DOMAIN][entry.entry_id] = manager
