@@ -1,6 +1,8 @@
 """Set up the Shutter Control integration."""
 from __future__ import annotations
 
+import asyncio
+
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import config_validation as cv
@@ -15,10 +17,12 @@ from .const import (
     DOMAIN,
     PLATFORMS,
 )
+from .config_entities import ensure_config_entities
 from .controller import ControllerManager
 
 SERVICE_MANUAL_OVERRIDE = "set_manual_override"
 SERVICE_ACTIVATE_SHADING = "activate_shading"
+SERVICE_RELOAD = "reload"
 
 
 async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
@@ -66,12 +70,27 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
                 {vol.Required(CONF_COVERS): cv.entity_id, vol.Optional(CONF_MANUAL_OVERRIDE_MINUTES): cv.positive_int}
             ),
         )
+    if SERVICE_RELOAD not in hass.services.async_services_for_domain(DOMAIN):
+        async def handle_reload(call):
+            reload_tasks = [
+                hass.config_entries.async_reload(entry.entry_id)
+                for entry in hass.config_entries.async_entries(DOMAIN)
+            ]
+            if reload_tasks:
+                await asyncio.gather(*reload_tasks)
+
+        hass.services.async_register(
+            DOMAIN,
+            SERVICE_RELOAD,
+            handle_reload,
+        )
 
     return True
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Load a config entry."""
+    await ensure_config_entities(hass, entry.entry_id, {**entry.data, **entry.options})
     created_entities = await ensure_config_entities(
         hass, entry.entry_id, {**entry.data, **entry.options}
     )
@@ -91,8 +110,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Unload a config entry."""
-    manager: ControllerManager = hass.data[DOMAIN].pop(entry.entry_id)
-    await manager.async_unload()
+    manager: ControllerManager | None = hass.data.get(DOMAIN, {}).pop(entry.entry_id, None)
+    if manager:
+        await manager.async_unload()
     return await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
 
 

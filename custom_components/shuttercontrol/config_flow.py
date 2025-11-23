@@ -138,13 +138,9 @@ class ShutterControlFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     vol.Required(CONF_SHADING_POSITION, default=DEFAULT_SHADING_POSITION): int,
                     vol.Required(CONF_POSITION_TOLERANCE, default=DEFAULT_TOLERANCE): int,
                     vol.Required(CONF_TIME_UP_WORKDAY, default=DEFAULT_TIME_UP_WORKDAY): selector.TimeSelector(),
-                    vol.Required(
-                        CONF_TIME_UP_NON_WORKDAY, default=DEFAULT_TIME_UP_NON_WORKDAY
-                    ): selector.TimeSelector(),
                     vol.Required(CONF_TIME_DOWN_WORKDAY, default=DEFAULT_TIME_DOWN_WORKDAY): selector.TimeSelector(),
-                    vol.Required(
-                        CONF_TIME_DOWN_NON_WORKDAY, default=DEFAULT_TIME_DOWN_NON_WORKDAY
-                    ): selector.TimeSelector(),
+                    vol.Required(CONF_TIME_DOWN_NON_WORKDAY, default=DEFAULT_TIME_DOWN_NON_WORKDAY): selector.TimeSelector(),
+                    ol.Required(CONF_TIME_UP_NON_WORKDAY, default=DEFAULT_TIME_UP_NON_WORKDAY): selector.TimeSelector(),
                     vol.Optional(CONF_WORKDAY_SENSOR): selector.EntitySelector(
                         selector.EntitySelectorConfig(domain=["binary_sensor", "sensor"])
                     ),
@@ -239,6 +235,14 @@ class ShutterOptionsFlow(config_entries.OptionsFlow):
         self.config_entry = config_entry
         self._options = dict(config_entry.data | config_entry.options)
 
+    def _time_default(self, key: str, legacy: tuple[str, ...], fallback: str) -> str:
+        if key in self._options:
+            return self._options.get(key, fallback)
+        for legacy_key in legacy:
+            if legacy_key in self._options:
+                return self._options.get(legacy_key, fallback)
+        return fallback
+
     async def async_step_init(self, user_input=None) -> FlowResult:
         if user_input is not None:
             mapping: dict[str, list[str]] = {}
@@ -281,7 +285,7 @@ class ShutterOptionsFlow(config_entries.OptionsFlow):
             ),
             vol.Optional(
                 CONF_TIME_UP_WORKDAY,
-                default=self._options.get(CONF_TIME_UP_WORKDAY, DEFAULT_TIME_UP_WORKDAY),
+                default=self._options.get(CONF_TIME_UP_WORKDAY, DEFAULT_TIME_UP_WORKDAY),,
             ): selector.TimeSelector(),
             vol.Optional(
                 CONF_TIME_UP_NON_WORKDAY,
