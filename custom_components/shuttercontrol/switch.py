@@ -4,7 +4,7 @@ from __future__ import annotations
 from homeassistant.components.switch import SwitchEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers.entity import DeviceInfo
+from homeassistant.helpers.entity import DeviceInfo, EntityCategory
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .const import (
@@ -16,8 +16,10 @@ from .const import (
     CONF_AUTO_UP,
     CONF_AUTO_VENTILATE,
     CONF_NAME,
+    DEFAULT_AUTOMATION_FLAGS,
     DEFAULT_NAME,
     DOMAIN,
+    CONF_AUTO_WIND,
 )
 
 
@@ -29,6 +31,7 @@ AUTOMATION_TOGGLES: tuple[tuple[str, str], ...] = (
     (CONF_AUTO_VENTILATE, "auto_ventilate"),
     (CONF_AUTO_SHADING, "auto_shading"),
     (CONF_AUTO_COLD, "auto_cold"),
+    (CONF_AUTO_WIND, "auto_wind"),
 )
 
 TOGGLE_ICONS: dict[str, str] = {
@@ -39,6 +42,7 @@ TOGGLE_ICONS: dict[str, str] = {
     CONF_AUTO_VENTILATE: "mdi:fan-auto",
     CONF_AUTO_SHADING: "mdi:theme-light-dark",
     CONF_AUTO_COLD: "mdi:snowflake-variant",
+    CONF_AUTO_WIND: "mdi:weather-windy",
 }
 
 async def async_setup_entry(
@@ -59,6 +63,7 @@ class AutomationToggleSwitch(SwitchEntity):
 
     _attr_should_poll = False
     _attr_has_entity_name = True
+    _attr_entity_category = EntityCategory.CONFIG
 
     def __init__(self, entry: ConfigEntry, key: str, translation_key: str) -> None:
         self.entry = entry
@@ -66,18 +71,31 @@ class AutomationToggleSwitch(SwitchEntity):
         self._attr_unique_id = f"{entry.entry_id}-{key}"
         self._attr_translation_key = translation_key
         self._attr_icon = TOGGLE_ICONS.get(key)
+        self._attr_name = translation_key
+
+    async def async_added_to_hass(self) -> None:
+        """Handle entity addition and keep state in sync with options."""
+
+        self.async_on_remove(
+            self.entry.add_update_listener(self._handle_entry_update)
+        )
 
     @property
     def device_info(self) -> DeviceInfo:
         return DeviceInfo(
             identifiers={(DOMAIN, self.entry.entry_id)},
-            name=entry.options.get(CONF_NAME, entry.data.get(CONF_NAME, entry.title or DEFAULT_NAME)),
+            name=self.entry.options.get(
+                CONF_NAME,
+                self.entry.data.get(CONF_NAME, self.entry.title or DEFAULT_NAME),
+            ),
             manufacturer="CCA-derived",
         )
 
     @property
     def is_on(self) -> bool:
-        value = self.entry.options.get(self._key, self.entry.data.get(self._key))
+        value = self.entry.options.get(self._key)
+        if value is None:
+            value = self.entry.data.get(self._key, DEFAULT_AUTOMATION_FLAGS.get(self._key))
         return bool(value)
 
     async def async_turn_on(self, **kwargs) -> None:  # type: ignore[override]
@@ -87,3 +105,8 @@ class AutomationToggleSwitch(SwitchEntity):
     async def async_turn_off(self, **kwargs) -> None:  # type: ignore[override]
         options = {**self.entry.options, self._key: False}
         await self.hass.config_entries.async_update_entry(self.entry, options=options)
+
+    async def _handle_entry_update(self, hass: HomeAssistant, entry: ConfigEntry) -> None:
+        """Refresh state when config entry is updated."""
+
+        self.async_write_ha_state()

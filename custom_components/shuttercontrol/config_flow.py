@@ -83,9 +83,16 @@ from .const import (
     DEFAULT_TIME_DOWN_WORKDAY,
     DEFAULT_TIME_UP_NON_WORKDAY,
     DEFAULT_TIME_UP_WORKDAY,
+    DEFAULT_AUTOMATION_FLAGS,
     DOMAIN,
 )
 from .const import DEFAULT_CLOSE_POSITION  # separate import for line length
+
+
+def _with_automation_defaults(config: dict) -> dict:
+    """Ensure automation toggles fall back to default values."""
+
+    return {**DEFAULT_AUTOMATION_FLAGS, **config}
 
 
 class ShutterControlFlow(config_entries.ConfigFlow, domain=DOMAIN):
@@ -217,53 +224,40 @@ class ShutterControlFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         selector.EntitySelectorConfig(domain=["switch", "input_boolean", "binary_sensor"])
                     ),
                     vol.Optional(
-                        CONF_AUTO_UP_ENTITY
-                    ): selector.EntitySelector(
-                        selector.EntitySelectorConfig(domain=["switch", "input_boolean", "binary_sensor"])
-                    ),
-                    vol.Required(CONF_AUTO_UP, default=True): bool,
-                    vol.Optional(
                         CONF_AUTO_DOWN_ENTITY
                     ): selector.EntitySelector(
                         selector.EntitySelectorConfig(domain=["switch", "input_boolean", "binary_sensor"])
                     ),
-                    vol.Required(CONF_AUTO_DOWN, default=True): bool,
                     vol.Optional(
                         CONF_AUTO_BRIGHTNESS_ENTITY
                     ): selector.EntitySelector(
                         selector.EntitySelectorConfig(domain=["switch", "input_boolean", "binary_sensor"])
                     ),
-                    vol.Required(CONF_AUTO_BRIGHTNESS, default=True): bool,
                     vol.Optional(
                         CONF_AUTO_SUN_ENTITY
                     ): selector.EntitySelector(
                         selector.EntitySelectorConfig(domain=["switch", "input_boolean", "binary_sensor"])
                     ),
-                    vol.Required(CONF_AUTO_SUN, default=True): bool,
                     vol.Optional(
                         CONF_AUTO_VENTILATE_ENTITY
                     ): selector.EntitySelector(
                         selector.EntitySelectorConfig(domain=["switch", "input_boolean", "binary_sensor"])
                     ),
-                    vol.Required(CONF_AUTO_VENTILATE, default=True): bool,
                     vol.Optional(
                         CONF_AUTO_COLD_ENTITY
                     ): selector.EntitySelector(
                         selector.EntitySelectorConfig(domain=["switch", "input_boolean", "binary_sensor"])
                     ),
-                    vol.Required(CONF_AUTO_COLD, default=False): bool,
                     vol.Optional(
                         CONF_AUTO_SHADING_ENTITY
                     ): selector.EntitySelector(
                         selector.EntitySelectorConfig(domain=["switch", "input_boolean", "binary_sensor"])
                     ),
-                    vol.Required(CONF_AUTO_SHADING, default=True): bool,
                     vol.Optional(
                         CONF_AUTO_WIND_ENTITY
                     ): selector.EntitySelector(
                         selector.EntitySelectorConfig(domain=["switch", "input_boolean", "binary_sensor"])
                     ),
-                    vol.Required(CONF_AUTO_WIND, default=True): bool,
                 }
             ),
         )
@@ -272,7 +266,8 @@ class ShutterControlFlow(config_entries.ConfigFlow, domain=DOMAIN):
         if user_input:
             self._data.update(user_input)
         name = self._data.get(CONF_NAME, DEFAULT_NAME).strip() or DEFAULT_NAME
-        return self.async_create_entry(title=name, data=self._data)
+        data = _with_automation_defaults(self._data)
+        return self.async_create_entry(title=name, data=data)
 
     def _cover_key(self, cover: str) -> str:
         state = self.hass.states.get(cover)
@@ -294,7 +289,7 @@ class ShutterOptionsFlow(config_entries.OptionsFlow):
 
     def __init__(self, config_entry: config_entries.ConfigEntry) -> None:
         self.config_entry = config_entry
-        self._options = dict(config_entry.data | config_entry.options)
+        self._options = _with_automation_defaults(dict(config_entry.data | config_entry.options))
 
     def _time_default(self, key: str, legacy: tuple[str, ...], fallback: str) -> str:
         if key in self._options:
@@ -320,7 +315,6 @@ class ShutterOptionsFlow(config_entries.OptionsFlow):
         auto_ventilate = bool(self._options.get(CONF_AUTO_VENTILATE, True))
         auto_cold = bool(self._options.get(CONF_AUTO_COLD, False))
         auto_shading = bool(self._options.get(CONF_AUTO_SHADING, True))
-        auto_wind = bool(self._options.get(CONF_AUTO_WIND, True))
 
         schema: dict = {
             vol.Optional(CONF_NAME, default=self._options.get(CONF_NAME, self.config_entry.title or DEFAULT_NAME)): str,
@@ -371,46 +365,39 @@ class ShutterOptionsFlow(config_entries.OptionsFlow):
             ): selector.EntitySelector(
                 selector.EntitySelectorConfig(domain=["switch", "input_boolean", "binary_sensor"])
             ),
-            vol.Required(CONF_AUTO_DOWN, default=self._options.get(CONF_AUTO_DOWN, True)): bool,
             vol.Optional(
                 CONF_AUTO_DOWN_ENTITY, default=self._options.get(CONF_AUTO_DOWN_ENTITY)
             ): selector.EntitySelector(
                 selector.EntitySelectorConfig(domain=["switch", "input_boolean", "binary_sensor"])
             ),
-            vol.Required(CONF_AUTO_BRIGHTNESS, default=self._options.get(CONF_AUTO_BRIGHTNESS, True)): bool,
             vol.Optional(
                 CONF_AUTO_BRIGHTNESS_ENTITY,
                 default=self._options.get(CONF_AUTO_BRIGHTNESS_ENTITY),
             ): selector.EntitySelector(
                 selector.EntitySelectorConfig(domain=["switch", "input_boolean", "binary_sensor"])
             ),
-            vol.Required(CONF_AUTO_SUN, default=self._options.get(CONF_AUTO_SUN, True)): bool,
             vol.Optional(
                 CONF_AUTO_SUN_ENTITY, default=self._options.get(CONF_AUTO_SUN_ENTITY)
             ): selector.EntitySelector(
                 selector.EntitySelectorConfig(domain=["switch", "input_boolean", "binary_sensor"])
             ),
-            vol.Required(CONF_AUTO_VENTILATE, default=self._options.get(CONF_AUTO_VENTILATE, True)): bool,
             vol.Optional(
                 CONF_AUTO_VENTILATE_ENTITY,
                 default=self._options.get(CONF_AUTO_VENTILATE_ENTITY),
             ): selector.EntitySelector(
                 selector.EntitySelectorConfig(domain=["switch", "input_boolean", "binary_sensor"])
             ),
-            vol.Required(CONF_AUTO_COLD, default=self._options.get(CONF_AUTO_COLD, False)): bool,
             vol.Optional(
                 CONF_AUTO_COLD_ENTITY, default=self._options.get(CONF_AUTO_COLD_ENTITY)
             ): selector.EntitySelector(
                 selector.EntitySelectorConfig(domain=["switch", "input_boolean", "binary_sensor"])
             ),
-            vol.Required(CONF_AUTO_SHADING, default=self._options.get(CONF_AUTO_SHADING, True)): bool,
             vol.Optional(
                 CONF_AUTO_SHADING_ENTITY, default=self._options.get(CONF_AUTO_SHADING_ENTITY)
             ): selector.EntitySelector(
                 selector.EntitySelectorConfig(domain=["switch", "input_boolean", "binary_sensor"])
             ),
-            vol.Required(CONF_AUTO_WIND, default=auto_wind): bool,
-             vol.Optional(
+            vol.Optional(
                 CONF_AUTO_WIND_ENTITY, default=self._options.get(CONF_AUTO_WIND_ENTITY)
             ): selector.EntitySelector(
                 selector.EntitySelectorConfig(domain=["switch", "input_boolean", "binary_sensor"])

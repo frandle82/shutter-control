@@ -75,6 +75,17 @@ CONF_AUTO_COLD_ENTITY = "auto_cold_entity"
 CONF_AUTO_WIND = "auto_wind_protection_enabled"
 CONF_AUTO_WIND_ENTITY = "auto_wind_protection_entity"
 
+DEFAULT_AUTOMATION_FLAGS: dict[str, bool] = {
+    CONF_AUTO_UP: True,
+    CONF_AUTO_DOWN: True,
+    CONF_AUTO_BRIGHTNESS: True,
+    CONF_AUTO_SUN: True,
+    CONF_AUTO_VENTILATE: True,
+    CONF_AUTO_SHADING: True,
+    CONF_AUTO_COLD: False,
+    CONF_AUTO_WIND: True,
+}
+
 CONF_COLD_PROTECTION_THRESHOLD = "cold_protection_temperature"
 CONF_COLD_PROTECTION_FORECAST_SENSOR = "cold_protection_forecast_sensor"
 

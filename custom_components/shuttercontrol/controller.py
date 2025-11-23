@@ -70,6 +70,7 @@ from .const import (
     CONF_WIND_SENSOR,
     CONF_WINDOW_SENSORS,
     CONF_WORKDAY_SENSOR,
+    DEFAULT_AUTOMATION_FLAGS,
     DEFAULT_MANUAL_OVERRIDE_MINUTES,
     DEFAULT_OPEN_POSITION,
     DEFAULT_TOLERANCE,
@@ -117,7 +118,7 @@ class ControllerManager:
         self.controllers: dict[str, ShutterController] = {}
 
     async def async_setup(self) -> None:
-        data = {**self.entry.data, **self.entry.options}
+        data = {**DEFAULT_AUTOMATION_FLAGS, **self.entry.data, **self.entry.options}
         for cover in data.get(CONF_COVERS, []):
             controller = ShutterController(self.hass, self.entry, cover, data)
             await controller.async_setup()
@@ -130,7 +131,7 @@ class ControllerManager:
 
     @callback
     def async_update_options(self) -> None:
-        new_data = {**self.entry.data, **self.entry.options}
+        new_data = {**DEFAULT_AUTOMATION_FLAGS, **self.entry.data, **self.entry.options}
         for controller in self.controllers.values():
             controller.update_config(new_data)
 
