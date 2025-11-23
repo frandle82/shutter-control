@@ -285,7 +285,7 @@ class ShutterOptionsFlow(config_entries.OptionsFlow):
             ),
             vol.Optional(
                 CONF_TIME_UP_WORKDAY,
-                default=self._options.get(CONF_TIME_UP_WORKDAY, DEFAULT_TIME_UP_WORKDAY),,
+                default=self._options.get(CONF_TIME_UP_WORKDAY, DEFAULT_TIME_UP_WORKDAY),
             ): selector.TimeSelector(),
             vol.Optional(
                 CONF_TIME_UP_NON_WORKDAY,
