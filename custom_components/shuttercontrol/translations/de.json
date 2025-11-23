@@ -158,6 +158,57 @@
       "shading_active": {
         "name": "Beschattung aktiv für {cover}"
       }
+    },
+    "number": {
+      "open_position": {
+        "name": "Öffnungsposition"
+      },
+      "close_position": {
+        "name": "Schließposition"
+      },
+      "ventilate_position": {
+        "name": "Lüftungsposition"
+      },
+      "shading_position": {
+        "name": "Verschattungsposition"
+      }
+    },
+    "time": {
+      "time_up_workday": {
+        "name": "Arbeitstag Öffnungszeit"
+      },
+      "time_down_workday": {
+        "name": "Arbeitstag Schließzeit"
+      },
+      "time_up_non_workday": {
+        "name": "Feiertag Öffnungszeit"
+      },
+      "time_down_non_workday": {
+        "name": "Feiertag Schließzeit"
+      }
+        },
+    "switch": {
+      "auto_up": {
+        "name": "Automatisches Öffnen"
+      },
+      "auto_down": {
+        "name": "Automatisches Schließen"
+      },
+      "auto_brightness": {
+        "name": "Helligkeitsautomatik"
+      },
+      "auto_sun": {
+        "name": "Sonnenstands-Automatik"
+      },
+      "auto_ventilate": {
+        "name": "Lüftung/Sperre"
+      },
+      "auto_shading": {
+        "name": "Beschattung"
+      },
+      "auto_cold": {
+        "name": "Kälteschutz"
+      }
     }
   },
   "services": {
