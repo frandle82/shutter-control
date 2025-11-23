@@ -10,13 +10,21 @@ from homeassistant.util import slugify
 
 from .const import (
     CONF_AUTO_BRIGHTNESS,
+    CONF_AUTO_BRIGHTNESS_ENTITY,
     CONF_AUTO_COLD,
+    CONF_AUTO_COLD_ENTITY,
     CONF_AUTO_DOWN,
+    CONF_AUTO_DOWN_ENTITY,
     CONF_AUTO_SHADING,
+    CONF_AUTO_SHADING_ENTITY,
     CONF_AUTO_SUN,
+    CONF_AUTO_SUN_ENTITY,
     CONF_AUTO_UP,
+    CONF_AUTO_UP_ENTITY,
     CONF_AUTO_VENTILATE,
+    CONF_AUTO_VENTILATE_ENTITY,
     CONF_AUTO_WIND,
+    CONF_AUTO_WIND_ENTITY,
     CONF_COLD_PROTECTION_FORECAST_SENSOR,
     CONF_COLD_PROTECTION_THRESHOLD,
     CONF_BRIGHTNESS_CLOSE_BELOW,
@@ -203,13 +211,58 @@ class ShutterControlFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     ),
                     vol.Optional(CONF_WIND_LIMIT, default=DEFAULT_WIND_LIMIT): vol.Coerce(float),
                     vol.Optional(CONF_MANUAL_OVERRIDE_MINUTES, default=DEFAULT_MANUAL_OVERRIDE_MINUTES): vol.Coerce(int),
+                    vol.Optional(
+                        CONF_AUTO_UP_ENTITY
+                    ): selector.EntitySelector(
+                        selector.EntitySelectorConfig(domain=["switch", "input_boolean", "binary_sensor"])
+                    ),
+                    vol.Optional(
+                        CONF_AUTO_UP_ENTITY
+                    ): selector.EntitySelector(
+                        selector.EntitySelectorConfig(domain=["switch", "input_boolean", "binary_sensor"])
+                    ),
                     vol.Required(CONF_AUTO_UP, default=True): bool,
+                    vol.Optional(
+                        CONF_AUTO_DOWN_ENTITY
+                    ): selector.EntitySelector(
+                        selector.EntitySelectorConfig(domain=["switch", "input_boolean", "binary_sensor"])
+                    ),
                     vol.Required(CONF_AUTO_DOWN, default=True): bool,
+                    vol.Optional(
+                        CONF_AUTO_BRIGHTNESS_ENTITY
+                    ): selector.EntitySelector(
+                        selector.EntitySelectorConfig(domain=["switch", "input_boolean", "binary_sensor"])
+                    ),
                     vol.Required(CONF_AUTO_BRIGHTNESS, default=True): bool,
+                    vol.Optional(
+                        CONF_AUTO_SUN_ENTITY
+                    ): selector.EntitySelector(
+                        selector.EntitySelectorConfig(domain=["switch", "input_boolean", "binary_sensor"])
+                    ),
                     vol.Required(CONF_AUTO_SUN, default=True): bool,
+                    vol.Optional(
+                        CONF_AUTO_VENTILATE_ENTITY
+                    ): selector.EntitySelector(
+                        selector.EntitySelectorConfig(domain=["switch", "input_boolean", "binary_sensor"])
+                    ),
                     vol.Required(CONF_AUTO_VENTILATE, default=True): bool,
+                    vol.Optional(
+                        CONF_AUTO_COLD_ENTITY
+                    ): selector.EntitySelector(
+                        selector.EntitySelectorConfig(domain=["switch", "input_boolean", "binary_sensor"])
+                    ),
                     vol.Required(CONF_AUTO_COLD, default=False): bool,
+                    vol.Optional(
+                        CONF_AUTO_SHADING_ENTITY
+                    ): selector.EntitySelector(
+                        selector.EntitySelectorConfig(domain=["switch", "input_boolean", "binary_sensor"])
+                    ),
                     vol.Required(CONF_AUTO_SHADING, default=True): bool,
+                    vol.Optional(
+                        CONF_AUTO_WIND_ENTITY
+                    ): selector.EntitySelector(
+                        selector.EntitySelectorConfig(domain=["switch", "input_boolean", "binary_sensor"])
+                    ),
                     vol.Required(CONF_AUTO_WIND, default=True): bool,
                 }
             ),
@@ -313,14 +366,55 @@ class ShutterOptionsFlow(config_entries.OptionsFlow):
             vol.Optional(CONF_WORKDAY_SENSOR, default=self._options.get(CONF_WORKDAY_SENSOR)): selector.EntitySelector(
                 selector.EntitySelectorConfig(domain=["binary_sensor", "sensor"])
             ),
-            vol.Required(CONF_AUTO_UP, default=self._options.get(CONF_AUTO_UP, True)): bool,
+            vol.Optional(
+                CONF_AUTO_UP_ENTITY, default=self._options.get(CONF_AUTO_UP_ENTITY)
+            ): selector.EntitySelector(
+                selector.EntitySelectorConfig(domain=["switch", "input_boolean", "binary_sensor"])
+            ),
             vol.Required(CONF_AUTO_DOWN, default=self._options.get(CONF_AUTO_DOWN, True)): bool,
+            vol.Optional(
+                CONF_AUTO_DOWN_ENTITY, default=self._options.get(CONF_AUTO_DOWN_ENTITY)
+            ): selector.EntitySelector(
+                selector.EntitySelectorConfig(domain=["switch", "input_boolean", "binary_sensor"])
+            ),
             vol.Required(CONF_AUTO_BRIGHTNESS, default=self._options.get(CONF_AUTO_BRIGHTNESS, True)): bool,
+            vol.Optional(
+                CONF_AUTO_BRIGHTNESS_ENTITY,
+                default=self._options.get(CONF_AUTO_BRIGHTNESS_ENTITY),
+            ): selector.EntitySelector(
+                selector.EntitySelectorConfig(domain=["switch", "input_boolean", "binary_sensor"])
+            ),
             vol.Required(CONF_AUTO_SUN, default=self._options.get(CONF_AUTO_SUN, True)): bool,
+            vol.Optional(
+                CONF_AUTO_SUN_ENTITY, default=self._options.get(CONF_AUTO_SUN_ENTITY)
+            ): selector.EntitySelector(
+                selector.EntitySelectorConfig(domain=["switch", "input_boolean", "binary_sensor"])
+            ),
             vol.Required(CONF_AUTO_VENTILATE, default=self._options.get(CONF_AUTO_VENTILATE, True)): bool,
+            vol.Optional(
+                CONF_AUTO_VENTILATE_ENTITY,
+                default=self._options.get(CONF_AUTO_VENTILATE_ENTITY),
+            ): selector.EntitySelector(
+                selector.EntitySelectorConfig(domain=["switch", "input_boolean", "binary_sensor"])
+            ),
             vol.Required(CONF_AUTO_COLD, default=self._options.get(CONF_AUTO_COLD, False)): bool,
+            vol.Optional(
+                CONF_AUTO_COLD_ENTITY, default=self._options.get(CONF_AUTO_COLD_ENTITY)
+            ): selector.EntitySelector(
+                selector.EntitySelectorConfig(domain=["switch", "input_boolean", "binary_sensor"])
+            ),
             vol.Required(CONF_AUTO_SHADING, default=self._options.get(CONF_AUTO_SHADING, True)): bool,
+            vol.Optional(
+                CONF_AUTO_SHADING_ENTITY, default=self._options.get(CONF_AUTO_SHADING_ENTITY)
+            ): selector.EntitySelector(
+                selector.EntitySelectorConfig(domain=["switch", "input_boolean", "binary_sensor"])
+            ),
             vol.Required(CONF_AUTO_WIND, default=auto_wind): bool,
+             vol.Optional(
+                CONF_AUTO_WIND_ENTITY, default=self._options.get(CONF_AUTO_WIND_ENTITY)
+            ): selector.EntitySelector(
+                selector.EntitySelectorConfig(domain=["switch", "input_boolean", "binary_sensor"])
+            ),
             vol.Optional(
                 CONF_MANUAL_OVERRIDE_MINUTES,
                 default=self._options.get(CONF_MANUAL_OVERRIDE_MINUTES, DEFAULT_MANUAL_OVERRIDE_MINUTES),
