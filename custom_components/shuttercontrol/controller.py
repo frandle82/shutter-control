@@ -34,18 +34,14 @@ from .const import (
     CONF_BRIGHTNESS_OPEN_ABOVE,
     CONF_BRIGHTNESS_SENSOR,
     CONF_CLOSE_POSITION,
-    CONF_CLOSE_POSITION_ENTITY,
     CONF_COVERS,
     CONF_MANUAL_OVERRIDE_MINUTES,
     CONF_OPEN_POSITION,
-    CONF_OPEN_POSITION_ENTITY,
     CONF_POSITION_TOLERANCE,
-    CONF_POSITION_TOLERANCE_ENTITY,
     CONF_RESIDENT_SENSOR,
     CONF_SHADING_BRIGHTNESS_END,
     CONF_SHADING_BRIGHTNESS_START,
     CONF_SHADING_POSITION,
-    CONF_SHADING_POSITION_ENTITY,
     CONF_SUN_AZIMUTH_END,
     CONF_SUN_AZIMUTH_START,
     CONF_SUN_ELEVATION_CLOSE,
@@ -57,15 +53,10 @@ from .const import (
     CONF_TEMPERATURE_SENSOR_OUTDOOR,
     CONF_TEMPERATURE_THRESHOLD,
     CONF_TIME_DOWN_NON_WORKDAY,
-    CONF_TIME_DOWN_NON_WORKDAY_ENTITY,
     CONF_TIME_DOWN_WORKDAY,
-    CONF_TIME_DOWN_WORKDAY_ENTITY,
     CONF_TIME_UP_NON_WORKDAY,
-    CONF_TIME_UP_NON_WORKDAY_ENTITY,
     CONF_TIME_UP_WORKDAY,
-    CONF_TIME_UP_WORKDAY_ENTITY,
     CONF_VENTILATE_POSITION,
-    CONF_VENTILATE_POSITION_ENTITY,
     CONF_WIND_LIMIT,
     CONF_WIND_SENSOR,
     CONF_WINDOW_SENSORS,
@@ -174,19 +165,6 @@ class ShutterController:
             CONF_AUTO_COLD: CONF_AUTO_COLD_ENTITY,
             CONF_AUTO_WIND: CONF_AUTO_WIND_ENTITY,
         }
-        self._time_entity_map = {
-            CONF_TIME_UP_WORKDAY: CONF_TIME_UP_WORKDAY_ENTITY,
-            CONF_TIME_DOWN_WORKDAY: CONF_TIME_DOWN_WORKDAY_ENTITY,
-            CONF_TIME_UP_NON_WORKDAY: CONF_TIME_UP_NON_WORKDAY_ENTITY,
-            CONF_TIME_DOWN_NON_WORKDAY: CONF_TIME_DOWN_NON_WORKDAY_ENTITY,
-        }
-        self._position_entity_map = {
-            CONF_OPEN_POSITION: CONF_OPEN_POSITION_ENTITY,
-            CONF_CLOSE_POSITION: CONF_CLOSE_POSITION_ENTITY,
-            CONF_VENTILATE_POSITION: CONF_VENTILATE_POSITION_ENTITY,
-            CONF_SHADING_POSITION: CONF_SHADING_POSITION_ENTITY,
-            CONF_POSITION_TOLERANCE: CONF_POSITION_TOLERANCE_ENTITY,
-        }
 
     async def async_setup(self) -> None:
         self._unsubs.append(
@@ -226,6 +204,24 @@ class ShutterController:
 
     @callback
     def _handle_state_event(self, event) -> None:
+        if event.data.get("entity_id") == self.cover:
+            tolerance = float(
+                self._position_value(CONF_POSITION_TOLERANCE, DEFAULT_TOLERANCE)
+            )
+            current = self._current_position()
+            if (
+                current is not None
+                and self._target is not None
+                and abs(current - self._target) > tolerance
+                and not self._manual_until
+            ):
+                duration = self.config.get(
+                    CONF_MANUAL_OVERRIDE_MINUTES, DEFAULT_MANUAL_OVERRIDE_MINUTES
+                )
+                self._manual_until = dt_util.utcnow() + timedelta(minutes=duration)
+                self._reason = "manual_override"
+                self._refresh_next_events(dt_util.utcnow())
+                self._publish_state()
         self.hass.async_create_task(self._evaluate("state"))
 
     @callback
@@ -491,13 +487,6 @@ class ShutterController:
             value_key = CONF_TIME_UP_WORKDAY if is_up else CONF_TIME_DOWN_WORKDAY
         else:
             value_key = CONF_TIME_UP_NON_WORKDAY if is_up else CONF_TIME_DOWN_NON_WORKDAY
-        
-        entity_key = self._time_entity_map.get(value_key)
-        if entity_key:
-            entity_value = self._time_from_entity(entity_key)
-            if entity_value:
-                return entity_value
-
         return _parse_time(self.config.get(value_key))
 
     def _event_due(self, target: datetime | None, now: datetime) -> bool:
@@ -507,10 +496,6 @@ class ShutterController:
 
     def _position_value(self, key: str, default: float) -> float | None:
         entity_key = self._position_entity_map.get(key)
-        if entity_key:
-            entity_value = self._float_from_entity(entity_key)
-            if entity_value is not None:
-                return entity_value
         raw_value = self.config.get(key, default)
         try:
             return float(raw_value)
@@ -524,21 +509,6 @@ class ShutterController:
             if entity_id and self.hass.states.get(entity_id) is not None:
                 return self.hass.states.is_state(entity_id, STATE_ON)
         return bool(self.config.get(config_key))
-
-    def _float_from_entity(self, entity_key: str) -> float | None:
-        entity_id = self.config.get(entity_key)
-        if not entity_id:
-            return None
-        return _float_state(self.hass, entity_id)
-
-    def _time_from_entity(self, entity_key: str) -> time | None:
-        entity_id = self.config.get(entity_key)
-        if not entity_id:
-            return None
-        state = self.hass.states.get(entity_id)
-        if state is None:
-            return None
-        return _parse_time(state.state)
 
     async def _set_position(self, position: float | None, reason: str) -> None:
         if position is None:
