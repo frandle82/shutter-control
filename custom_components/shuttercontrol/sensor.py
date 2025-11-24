@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
+from homeassistant.util import dt as dt_util
 from homeassistant.components.sensor import SensorDeviceClass, SensorEntity, SensorStateClass
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import PERCENTAGE
@@ -24,10 +25,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
     for cover, controller in manager.controllers.items():
         entities.extend(
             [
-                ShutterTargetSensor(entry, cover),
-                ShutterCurrentPositionSensor(entry, cover),
                 ShutterNextOpenSensor(entry, cover),
                 ShutterNextCloseSensor(entry, cover),
+                ShutterVentilationSensor(entry, cover),
             ]
         )
         if controller.config.get(CONF_AUTO_SHADING):
@@ -44,14 +44,13 @@ class ShutterBaseSensor(SensorEntity):
     def __init__(self, entry: ConfigEntry, cover: str, suffix: str, translation_key: str) -> None:
         self.entry = entry
         self.cover = cover
-        self._target: float | None = None
         self._reason: str | None = None
         self._manual_until: datetime | None = None
         self._next_open: datetime | None = None
         self._next_close: datetime | None = None
-        self._current_position: float | None = None
         self._shading_enabled: bool = False
         self._shading_active: bool = False
+        self._ventilation_active: bool = False
         slug = slugify(cover.split(".")[-1])
         self._attr_unique_id = f"{entry.entry_id}-{slug}-{suffix}"
         self._attr_translation_key = translation_key
@@ -65,9 +64,12 @@ class ShutterBaseSensor(SensorEntity):
             "cover_entity": self.cover,
             "next_open": self._next_open.isoformat() if self._next_open else None,
             "next_close": self._next_close.isoformat() if self._next_close else None,
-            "current_position": self._current_position,
             "shading_enabled": self._shading_enabled,
             "shading_active": self._shading_active,
+            "ventilation": self._ventilation_active,
+            "manual_override": bool(
+                self._manual_until and dt_util.utcnow() < self._manual_until
+            ),
         }
 
     @property
@@ -100,58 +102,24 @@ class ShutterBaseSensor(SensorEntity):
         self,
         entry_id: str,
         cover: str,
-        target: float | None,
         reason: str | None,
         manual_until: datetime | None,
         next_open: datetime | None,
         next_close: datetime | None,
-        current_position: float | None,
         shading_enabled: bool,
         shading_active: bool,
+        ventilation: bool,
     ) -> None:
         if entry_id != self.entry.entry_id or cover != self.cover:
             return
-        self._target = target
         self._reason = reason
         self._manual_until = manual_until
         self._next_open = next_open
         self._next_close = next_close
-        self._current_position = current_position
         self._shading_enabled = shading_enabled
         self._shading_active = shading_active
+        self._ventilation_active = ventilation
         self.async_write_ha_state()
-
-
-class ShutterTargetSensor(ShutterBaseSensor):
-    """Represent target position and reason from the controller."""
-
-    _attr_icon = "mdi:window-shutter-settings"
-    _attr_native_unit_of_measurement = PERCENTAGE
-    _attr_state_class = SensorStateClass.MEASUREMENT
-
-    def __init__(self, entry: ConfigEntry, cover: str) -> None:
-        super().__init__(entry, cover, "target", "target")
-
-    @property
-    def native_value(self) -> float | None:
-        """Return the last commanded position."""
-
-        return self._target
-
-
-class ShutterCurrentPositionSensor(ShutterBaseSensor):
-    """Expose the current cover position."""
-
-    _attr_icon = "mdi:window-shutter"
-    _attr_native_unit_of_measurement = PERCENTAGE
-    _attr_state_class = SensorStateClass.MEASUREMENT
-
-    def __init__(self, entry: ConfigEntry, cover: str) -> None:
-        super().__init__(entry, cover, "current", "current_position")
-
-    @property
-    def native_value(self) -> float | None:
-        return self._current_position
 
 
 class ShutterNextOpenSensor(ShutterBaseSensor):
@@ -197,3 +165,16 @@ class ShutterShadingActiveSensor(ShutterBaseSensor):
     @property
     def available(self) -> bool:
         return self._shading_enabled
+
+
+class ShutterVentilationSensor(ShutterBaseSensor):
+    """Expose whether ventilation mode is active."""
+
+    _attr_icon = "mdi:window-open-variant"
+
+    def __init__(self, entry: ConfigEntry, cover: str) -> None:
+        super().__init__(entry, cover, "ventilation", "ventilation")
+
+    @property
+    def native_value(self) -> bool:
+        return self._ventilation_active
