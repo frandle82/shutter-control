@@ -136,20 +136,20 @@
   },
   "entity": {
     "sensor": {
-      "target": {
-        "name": "Target"
-      },
-      "current_position": {
-        "name": "Current position"
-      },
       "next_open": {
         "name": "Next open"
       },
       "next_close": {
         "name": "Next close"
       },
+      "reason": {
+        "name": "Reason"
+      },
       "shading_active": {
         "name": "Shading"
+      },
+      "ventilation": {
+        "name": "Ventilation"
       }
     },
     "number": {

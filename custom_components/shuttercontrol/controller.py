@@ -63,6 +63,10 @@ from .const import (
     CONF_WORKDAY_SENSOR,
     DEFAULT_AUTOMATION_FLAGS,
     DEFAULT_MANUAL_OVERRIDE_MINUTES,
+    DEFAULT_TIME_DOWN_NON_WORKDAY,
+    DEFAULT_TIME_DOWN_WORKDAY,
+    DEFAULT_TIME_UP_NON_WORKDAY,
+    DEFAULT_TIME_UP_WORKDAY,
     DEFAULT_OPEN_POSITION,
     DEFAULT_TOLERANCE,
     DEFAULT_VENTILATE_POSITION,
@@ -73,6 +77,7 @@ from .const import (
     SIGNAL_STATE_UPDATED,
 )
 
+IDLE_REASON = "idle"
 
 def _parse_time(value: str | datetime | None) -> time | None:
     if not value:
@@ -139,7 +144,41 @@ class ControllerManager:
             return False
         controller.activate_shading(minutes)
         return True
+    
+    def clear_manual_override(self, cover: str) -> bool:
+        controller = self.controllers.get(cover)
+        if not controller:
+            return False
+        controller.clear_manual_override()
+        return True
 
+    def state_snapshot(
+        self, cover: str
+        ) -> tuple[
+            float | None,
+            str | None,
+            datetime | None,
+            datetime | None,
+            datetime | None,
+            float | None,
+            bool,
+            bool,
+            bool,
+        ] | None:
+            controller = self.controllers.get(cover)
+            if not controller:
+                return (
+                    None,
+                    IDLE_REASON,
+                    None,
+                    None,
+                    None,
+                    None,
+                    False,
+                    False,
+                    False,
+                )
+            return controller.state_snapshot()
 
 class ShutterController:
     """Translate blueprint-style parameters into runtime cover control."""
@@ -155,6 +194,10 @@ class ShutterController:
         self._reason: str | None = None
         self._next_open: datetime | None = None
         self._next_close: datetime | None = None
+        # Position helpers were removed, but keep the mapping available so
+        # legacy config entries that still reference helper entities do not
+        # cause attribute errors during lookups.
+        self._position_entity_map: dict[str, str] = {}
         self._auto_entity_map = {
             CONF_AUTO_UP: CONF_AUTO_UP_ENTITY,
             CONF_AUTO_DOWN: CONF_AUTO_DOWN_ENTITY,
@@ -190,6 +233,7 @@ class ShutterController:
         self._refresh_next_events(dt_util.utcnow())
         self._publish_state()
 
+
     async def async_unload(self) -> None:
         while self._unsubs:
             unsub = self._unsubs.pop()
@@ -204,6 +248,8 @@ class ShutterController:
 
     @callback
     def _handle_state_event(self, event) -> None:
+        now = dt_util.utcnow()
+        self._expire_manual_override(now)
         if event.data.get("entity_id") == self.cover:
             tolerance = float(
                 self._position_value(CONF_POSITION_TOLERANCE, DEFAULT_TOLERANCE)
@@ -229,11 +275,57 @@ class ShutterController:
         self.hass.async_create_task(self._evaluate("time"))
 
     def set_manual_override(self, minutes: int) -> None:
-        duration = minutes or self.config.get(CONF_MANUAL_OVERRIDE_MINUTES, DEFAULT_MANUAL_OVERRIDE_MINUTES)
+        duration = minutes or self.config.get(
+            CONF_MANUAL_OVERRIDE_MINUTES, DEFAULT_MANUAL_OVERRIDE_MINUTES
+        )
         self._manual_until = dt_util.utcnow() + timedelta(minutes=duration)
         self._reason = "manual_override"
         self._refresh_next_events(dt_util.utcnow())
         self._publish_state()
+    
+    def clear_manual_override(self) -> None:
+        self._manual_until = None
+        if self._reason in {"manual_override", "manual_shading"}:
+            self._reason = None
+        self._refresh_next_events(dt_util.utcnow())
+        self._publish_state()
+
+    def publish_state(self) -> None:
+        """Expose the current state via dispatcher for newly added entities."""
+        self._refresh_next_events(dt_util.utcnow())
+        self._publish_state()
+
+    def state_snapshot(
+        self,
+    ) -> tuple[
+        float | None,
+        str | None,
+        datetime | None,
+        datetime | None,
+        datetime | None,
+        float | None,
+        bool,
+        bool,
+        bool,
+    ]:
+        """Provide the current state values without dispatching updates."""
+
+        self._refresh_next_events(dt_util.utcnow())
+        current_position = self._current_position()
+        shading_enabled = self._auto_enabled(CONF_AUTO_SHADING)
+        shading_active = self._shading_is_active(current_position, shading_enabled)
+        ventilation_active = self._ventilation_is_active(current_position)
+        return (
+            self._target,
+            self._reason or IDLE_REASON,
+            self._manual_until,
+            self._next_open,
+            self._next_close,
+            current_position,
+            shading_enabled,
+            shading_active,
+            ventilation_active,
+        )
 
     def activate_shading(self, minutes: int | None = None) -> None:
         duration = minutes or self.config.get(CONF_MANUAL_OVERRIDE_MINUTES, DEFAULT_MANUAL_OVERRIDE_MINUTES)
@@ -242,8 +334,15 @@ class ShutterController:
             self._set_position(self.config.get(CONF_SHADING_POSITION), "manual_shading")
         )
 
+    def _expire_manual_override(self, now: datetime) -> None:
+        if self._manual_until and now >= self._manual_until:
+            self._manual_until = None
+            if self._reason in {"manual_override", "manual_shading"}:
+                self._reason = None
+
     async def _evaluate(self, trigger: str) -> None:
         now = dt_util.utcnow()
+        self._expire_manual_override(now)
         if self._manual_until and now < self._manual_until:
             self._refresh_next_events(now)
             self._publish_state()
@@ -485,9 +584,17 @@ class ShutterController:
     def _time_setting(self, workday: bool, is_up: bool) -> time | None:
         if workday:
             value_key = CONF_TIME_UP_WORKDAY if is_up else CONF_TIME_DOWN_WORKDAY
+            fallback = DEFAULT_TIME_UP_WORKDAY if is_up else DEFAULT_TIME_DOWN_WORKDAY
         else:
             value_key = CONF_TIME_UP_NON_WORKDAY if is_up else CONF_TIME_DOWN_NON_WORKDAY
-        return _parse_time(self.config.get(value_key))
+            fallback = (
+                DEFAULT_TIME_UP_NON_WORKDAY if is_up else DEFAULT_TIME_DOWN_NON_WORKDAY
+            )
+
+        parsed = _parse_time(self.config.get(value_key))
+        if parsed:
+            return parsed
+        return _parse_time(fallback)
 
     def _event_due(self, target: datetime | None, now: datetime) -> bool:
         if not target:
@@ -545,13 +652,52 @@ class ShutterController:
         return sensors or []
 
     def _refresh_next_events(self, now: datetime) -> None:
+        candidates_open: list[datetime] = []
+        candidates_close: list[datetime] = []
+
+        sun_enabled = self._auto_enabled(CONF_AUTO_SUN)
+        if sun_enabled:
+            sun_state = self.hass.states.get("sun.sun")
+            sun_next_rising = sun_state and sun_state.attributes.get("next_rising")
+            sun_next_setting = sun_state and sun_state.attributes.get("next_setting")
+            next_rising = self._parse_datetime_attr(sun_next_rising)
+            next_setting = self._parse_datetime_attr(sun_next_setting)
+            if next_rising:
+                candidates_open.append(next_rising)
+            if next_setting:
+                candidates_close.append(next_setting)
         workday = self._is_workday()
-        self._next_open = self._next_time_for_point(
-            self._time_setting(workday, True), now
-        )
-        self._next_close = self._next_time_for_point(
-            self._time_setting(workday, False), now
-        )
+        next_up = self._next_time_for_point(self._time_setting(workday, True), now)
+        next_down = self._next_time_for_point(self._time_setting(workday, False), now)
+        if not sun_enabled:
+            if self._auto_enabled(CONF_AUTO_UP) and next_up:
+                candidates_open.append(next_up)
+            if self._auto_enabled(CONF_AUTO_DOWN) and next_down:
+                candidates_close.append(next_down)
+        self._next_open = min(candidates_open) if candidates_open else None
+        self._next_close = min(candidates_close) if candidates_close else None
+
+        # Ensure timestamp sensors have a concrete value even if dispatcher
+        # events have not yet run or if an automation toggle briefly disabled
+        # schedule collection.
+        if not sun_enabled and self._next_open is None:
+            fallback_open = self._next_time_for_point(self._time_setting(workday, True), now)
+            if fallback_open:
+                self._next_open = fallback_open
+        if not sun_enabled and self._next_close is None:
+            fallback_close = self._next_time_for_point(self._time_setting(workday, False), now)
+            if fallback_close:
+                self._next_close = fallback_close
+        
+    def _parse_datetime_attr(self, value: datetime | str | None) -> datetime | None:
+        if isinstance(value, datetime):
+            return value
+        if not value:
+            return None
+        parsed = dt_util.parse_datetime(str(value))
+        if parsed:
+            return dt_util.as_utc(parsed)
+        return None
 
     def _next_time_for_point(self, scheduled: time | None, now: datetime) -> datetime | None:
         if not scheduled:
@@ -565,14 +711,15 @@ class ShutterController:
     def _publish_state(self) -> None:
         current_position = self._current_position()
         shading_enabled = self._auto_enabled(CONF_AUTO_SHADING)
-        shading_active = shading_enabled and self._reason in {"shading", "manual_shading"}
+        shading_active = self._shading_is_active(current_position, shading_enabled)
+        ventilation_active = self._ventilation_is_active(current_position)
         async_dispatcher_send(
             self.hass,
             SIGNAL_STATE_UPDATED,
             self.entry.entry_id,
             self.cover,
             self._target,
-            self._reason,
+            self._reason or IDLE_REASON,
             self._manual_until,
             self._next_open,
             self._next_close,
@@ -580,3 +727,23 @@ class ShutterController:
             shading_enabled,
             shading_active,
         )
+
+    def _position_matches(self, target: float | None, current: float | None) -> bool:
+        if target is None or current is None:
+            return False
+        tolerance = float(self._position_value(CONF_POSITION_TOLERANCE, DEFAULT_TOLERANCE))
+        return abs(current - float(target)) <= tolerance
+
+    def _shading_is_active(self, current_position: float | None, shading_enabled: bool) -> bool:
+        if not shading_enabled:
+            return False
+        if self._reason not in {"shading", "manual_shading"}:
+            return False
+        shading_target = self._position_value(CONF_SHADING_POSITION, DEFAULT_SHADING_POSITION)
+        return self._position_matches(shading_target, current_position)
+
+    def _ventilation_is_active(self, current_position: float | None) -> bool:
+        if self._reason != "ventilation":
+            return False
+        vent_target = self._position_value(CONF_VENTILATE_POSITION, DEFAULT_VENTILATE_POSITION)
+        return self._position_matches(vent_target, current_position)

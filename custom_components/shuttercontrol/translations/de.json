@@ -143,20 +143,20 @@
   },
   "entity": {
     "sensor": {
-      "target": {
-        "name": "Zielposition für {cover}"
-      },
-      "current_position": {
-        "name": "Aktuelle Position von {cover}"
-      },
       "next_open": {
-        "name": "Nächste Öffnung für {cover}"
+        "name": "Nächste Öffnung:"
       },
       "next_close": {
-        "name": "Nächste Schließung für {cover}"
+        "name": "Nächste Schließung:"
+      },
+      "reason": {
+        "name": "Grund:"
       },
       "shading_active": {
-        "name": "Beschattung aktiv für {cover}"
+        "name": "Beschattung aktiv:"
+      },
+      "ventilation": {
+        "name": "Lüftung"
       }
     },
     "number": {

@@ -22,6 +22,7 @@ from .controller import ControllerManager
 
 SERVICE_MANUAL_OVERRIDE = "set_manual_override"
 SERVICE_ACTIVATE_SHADING = "activate_shading"
+SERVICE_CLEAR_MANUAL_OVERRIDE = "clear_manual_override"
 SERVICE_RELOAD = "reload"
 
 
@@ -69,6 +70,23 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
             schema=cv.make_entity_service_schema(
                 {vol.Required(CONF_COVERS): cv.entity_id, vol.Optional(CONF_MANUAL_OVERRIDE_MINUTES): cv.positive_int}
             ),
+        )
+    if SERVICE_CLEAR_MANUAL_OVERRIDE not in hass.services.async_services_for_domain(DOMAIN):
+        async def handle_clear_manual_override(call):
+            cover = call.data[CONF_COVERS]
+            matched = False
+            for manager in hass.data.get(DOMAIN, {}).values():
+                if isinstance(manager, ControllerManager) and manager.clear_manual_override(cover):
+                    matched = True
+                    break
+            if not matched:
+                raise ValueError(f"No controller registered for {cover}")
+
+        hass.services.async_register(
+            DOMAIN,
+            SERVICE_CLEAR_MANUAL_OVERRIDE,
+            handle_clear_manual_override,
+            schema=cv.make_entity_service_schema({vol.Required(CONF_COVERS): cv.entity_id}),
         )
     if SERVICE_RELOAD not in hass.services.async_services_for_domain(DOMAIN):
         async def handle_reload(call):

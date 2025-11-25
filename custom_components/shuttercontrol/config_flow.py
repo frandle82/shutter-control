@@ -10,21 +10,13 @@ from homeassistant.util import slugify
 
 from .const import (
     CONF_AUTO_BRIGHTNESS,
-    CONF_AUTO_BRIGHTNESS_ENTITY,
     CONF_AUTO_COLD,
-    CONF_AUTO_COLD_ENTITY,
     CONF_AUTO_DOWN,
-    CONF_AUTO_DOWN_ENTITY,
     CONF_AUTO_SHADING,
-    CONF_AUTO_SHADING_ENTITY,
     CONF_AUTO_SUN,
-    CONF_AUTO_SUN_ENTITY,
     CONF_AUTO_UP,
-    CONF_AUTO_UP_ENTITY,
     CONF_AUTO_VENTILATE,
-    CONF_AUTO_VENTILATE_ENTITY,
     CONF_AUTO_WIND,
-    CONF_AUTO_WIND_ENTITY,
     CONF_COLD_PROTECTION_FORECAST_SENSOR,
     CONF_COLD_PROTECTION_THRESHOLD,
     CONF_BRIGHTNESS_CLOSE_BELOW,
@@ -138,7 +130,7 @@ class ShutterControlFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         self._cover_key(cover),
                         default=self._existing_windows_for_cover(cover),
                     ): selector.EntitySelector(
-                        selector.EntitySelectorConfig(domain=["binary_sensor"], multiple=True)
+                        selector.EntitySelectorConfig(domain=["binary_sensor"],device_class=["window"], multiple=True)
                     )
                     for cover in covers
                 }
@@ -154,47 +146,15 @@ class ShutterControlFlow(config_entries.ConfigFlow, domain=DOMAIN):
             step_id="schedule",
             data_schema=vol.Schema(
                 {
-                    vol.Required(CONF_OPEN_POSITION, default=DEFAULT_OPEN_POSITION): int,
-                    vol.Required(CONF_CLOSE_POSITION, default=DEFAULT_CLOSE_POSITION): int,
-                    vol.Required(CONF_VENTILATE_POSITION, default=DEFAULT_VENTILATE_POSITION): int,
-                    vol.Required(CONF_SHADING_POSITION, default=DEFAULT_SHADING_POSITION): int,
-                    vol.Required(CONF_POSITION_TOLERANCE, default=DEFAULT_TOLERANCE): int,
-                    vol.Required(CONF_TIME_UP_WORKDAY, default=DEFAULT_TIME_UP_WORKDAY): selector.TimeSelector(),
-                    vol.Required(CONF_TIME_DOWN_WORKDAY, default=DEFAULT_TIME_DOWN_WORKDAY): selector.TimeSelector(),
-                    vol.Required(CONF_TIME_DOWN_NON_WORKDAY, default=DEFAULT_TIME_DOWN_NON_WORKDAY): selector.TimeSelector(),
-                    vol.Required(CONF_TIME_UP_NON_WORKDAY, default=DEFAULT_TIME_UP_NON_WORKDAY): selector.TimeSelector(),
                     vol.Optional(CONF_WORKDAY_SENSOR): selector.EntitySelector(
                         selector.EntitySelectorConfig(domain=["binary_sensor", "sensor"])
                     ),
                     vol.Optional(CONF_RESIDENT_SENSOR): selector.EntitySelector(
                         selector.EntitySelectorConfig(domain=["binary_sensor", "switch"])
                     ),
-                }
-            ),
-        )
-
-    async def async_step_shading(self, user_input=None) -> FlowResult:
-        if user_input is not None:
-            self._data.update(user_input)
-            return await self.async_step_finalize()
-
-        return self.async_show_form(
-            step_id="shading",
-            data_schema=vol.Schema(
-                {
                     vol.Optional(CONF_BRIGHTNESS_SENSOR): selector.EntitySelector(
                         selector.EntitySelectorConfig(domain=["sensor"])
                     ),
-                    vol.Optional(CONF_BRIGHTNESS_OPEN_ABOVE, default=DEFAULT_BRIGHTNESS_OPEN): vol.Coerce(float),
-                    vol.Optional(CONF_BRIGHTNESS_CLOSE_BELOW, default=DEFAULT_BRIGHTNESS_CLOSE): vol.Coerce(float),
-                    vol.Optional(CONF_SUN_ELEVATION_OPEN, default=DEFAULT_SUN_ELEVATION_OPEN): vol.Coerce(float),
-                    vol.Optional(CONF_SUN_ELEVATION_CLOSE, default=DEFAULT_SUN_ELEVATION_CLOSE): vol.Coerce(float),
-                    vol.Optional(CONF_SUN_AZIMUTH_START, default=DEFAULT_SHADING_AZIMUTH_START): vol.Coerce(float),
-                    vol.Optional(CONF_SUN_AZIMUTH_END, default=DEFAULT_SHADING_AZIMUTH_END): vol.Coerce(float),
-                    vol.Optional(CONF_SUN_ELEVATION_MIN, default=DEFAULT_SHADING_ELEVATION_MIN): vol.Coerce(float),
-                    vol.Optional(CONF_SUN_ELEVATION_MAX, default=DEFAULT_SHADING_ELEVATION_MAX): vol.Coerce(float),
-                    vol.Optional(CONF_SHADING_BRIGHTNESS_START, default=DEFAULT_SHADING_BRIGHTNESS_START): vol.Coerce(float),
-                    vol.Optional(CONF_SHADING_BRIGHTNESS_END, default=DEFAULT_SHADING_BRIGHTNESS_END): vol.Coerce(float),
                     vol.Optional(CONF_TEMPERATURE_SENSOR_INDOOR): selector.EntitySelector(
                         selector.EntitySelectorConfig(domain=["sensor"])
                     ),
@@ -216,48 +176,32 @@ class ShutterControlFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     vol.Optional(CONF_WIND_SENSOR): selector.EntitySelector(
                         selector.EntitySelectorConfig(domain=["sensor"])
                     ),
+                }
+            ),
+        )
+
+    async def async_step_shading(self, user_input=None) -> FlowResult:
+        if user_input is not None:
+            self._data.update(user_input)
+            return await self.async_step_finalize()
+
+        return self.async_show_form(
+            step_id="shading",
+            data_schema=vol.Schema(
+                {
+
+                    vol.Optional(CONF_BRIGHTNESS_OPEN_ABOVE, default=DEFAULT_BRIGHTNESS_OPEN): vol.Coerce(float),
+                    vol.Optional(CONF_BRIGHTNESS_CLOSE_BELOW, default=DEFAULT_BRIGHTNESS_CLOSE): vol.Coerce(float),
+                    vol.Optional(CONF_SUN_ELEVATION_OPEN, default=DEFAULT_SUN_ELEVATION_OPEN): vol.Coerce(float),
+                    vol.Optional(CONF_SUN_ELEVATION_CLOSE, default=DEFAULT_SUN_ELEVATION_CLOSE): vol.Coerce(float),
+                    vol.Optional(CONF_SUN_AZIMUTH_START, default=DEFAULT_SHADING_AZIMUTH_START): vol.Coerce(float),
+                    vol.Optional(CONF_SUN_AZIMUTH_END, default=DEFAULT_SHADING_AZIMUTH_END): vol.Coerce(float),
+                    vol.Optional(CONF_SUN_ELEVATION_MIN, default=DEFAULT_SHADING_ELEVATION_MIN): vol.Coerce(float),
+                    vol.Optional(CONF_SUN_ELEVATION_MAX, default=DEFAULT_SHADING_ELEVATION_MAX): vol.Coerce(float),
+                    vol.Optional(CONF_SHADING_BRIGHTNESS_START, default=DEFAULT_SHADING_BRIGHTNESS_START): vol.Coerce(float),
+                    vol.Optional(CONF_SHADING_BRIGHTNESS_END, default=DEFAULT_SHADING_BRIGHTNESS_END): vol.Coerce(float),
                     vol.Optional(CONF_WIND_LIMIT, default=DEFAULT_WIND_LIMIT): vol.Coerce(float),
                     vol.Optional(CONF_MANUAL_OVERRIDE_MINUTES, default=DEFAULT_MANUAL_OVERRIDE_MINUTES): vol.Coerce(int),
-                    vol.Optional(
-                        CONF_AUTO_UP_ENTITY
-                    ): selector.EntitySelector(
-                        selector.EntitySelectorConfig(domain=["switch", "input_boolean", "binary_sensor"])
-                    ),
-                    vol.Optional(
-                        CONF_AUTO_DOWN_ENTITY
-                    ): selector.EntitySelector(
-                        selector.EntitySelectorConfig(domain=["switch", "input_boolean", "binary_sensor"])
-                    ),
-                    vol.Optional(
-                        CONF_AUTO_BRIGHTNESS_ENTITY
-                    ): selector.EntitySelector(
-                        selector.EntitySelectorConfig(domain=["switch", "input_boolean", "binary_sensor"])
-                    ),
-                    vol.Optional(
-                        CONF_AUTO_SUN_ENTITY
-                    ): selector.EntitySelector(
-                        selector.EntitySelectorConfig(domain=["switch", "input_boolean", "binary_sensor"])
-                    ),
-                    vol.Optional(
-                        CONF_AUTO_VENTILATE_ENTITY
-                    ): selector.EntitySelector(
-                        selector.EntitySelectorConfig(domain=["switch", "input_boolean", "binary_sensor"])
-                    ),
-                    vol.Optional(
-                        CONF_AUTO_COLD_ENTITY
-                    ): selector.EntitySelector(
-                        selector.EntitySelectorConfig(domain=["switch", "input_boolean", "binary_sensor"])
-                    ),
-                    vol.Optional(
-                        CONF_AUTO_SHADING_ENTITY
-                    ): selector.EntitySelector(
-                        selector.EntitySelectorConfig(domain=["switch", "input_boolean", "binary_sensor"])
-                    ),
-                    vol.Optional(
-                        CONF_AUTO_WIND_ENTITY
-                    ): selector.EntitySelector(
-                        selector.EntitySelectorConfig(domain=["switch", "input_boolean", "binary_sensor"])
-                    ),
                 }
             ),
         )
@@ -322,11 +266,7 @@ class ShutterOptionsFlow(config_entries.OptionsFlow):
                 selector.EntitySelectorConfig(domain=["cover"], multiple=True)
             ),
             vol.Required(CONF_OPEN_POSITION, default=self._options.get(CONF_OPEN_POSITION, DEFAULT_OPEN_POSITION)): int,
-            vol.Required(CONF_CLOSE_POSITION, default=self._options.get(CONF_CLOSE_POSITION, DEFAULT_CLOSE_POSITION)): int,
-            vol.Required(
-                CONF_VENTILATE_POSITION, default=self._options.get(CONF_VENTILATE_POSITION, DEFAULT_VENTILATE_POSITION)
-            ): int,
-            vol.Required(CONF_SHADING_POSITION, default=self._options.get(CONF_SHADING_POSITION, DEFAULT_SHADING_POSITION)): int,
+
             vol.Required(
                 CONF_POSITION_TOLERANCE,
                 default=self._options.get(CONF_POSITION_TOLERANCE, DEFAULT_TOLERANCE),
@@ -359,48 +299,6 @@ class ShutterOptionsFlow(config_entries.OptionsFlow):
             ): selector.TimeSelector(),
             vol.Optional(CONF_WORKDAY_SENSOR, default=self._options.get(CONF_WORKDAY_SENSOR)): selector.EntitySelector(
                 selector.EntitySelectorConfig(domain=["binary_sensor", "sensor"])
-            ),
-            vol.Optional(
-                CONF_AUTO_UP_ENTITY, default=self._options.get(CONF_AUTO_UP_ENTITY)
-            ): selector.EntitySelector(
-                selector.EntitySelectorConfig(domain=["switch", "input_boolean", "binary_sensor"])
-            ),
-            vol.Optional(
-                CONF_AUTO_DOWN_ENTITY, default=self._options.get(CONF_AUTO_DOWN_ENTITY)
-            ): selector.EntitySelector(
-                selector.EntitySelectorConfig(domain=["switch", "input_boolean", "binary_sensor"])
-            ),
-            vol.Optional(
-                CONF_AUTO_BRIGHTNESS_ENTITY,
-                default=self._options.get(CONF_AUTO_BRIGHTNESS_ENTITY),
-            ): selector.EntitySelector(
-                selector.EntitySelectorConfig(domain=["switch", "input_boolean", "binary_sensor"])
-            ),
-            vol.Optional(
-                CONF_AUTO_SUN_ENTITY, default=self._options.get(CONF_AUTO_SUN_ENTITY)
-            ): selector.EntitySelector(
-                selector.EntitySelectorConfig(domain=["switch", "input_boolean", "binary_sensor"])
-            ),
-            vol.Optional(
-                CONF_AUTO_VENTILATE_ENTITY,
-                default=self._options.get(CONF_AUTO_VENTILATE_ENTITY),
-            ): selector.EntitySelector(
-                selector.EntitySelectorConfig(domain=["switch", "input_boolean", "binary_sensor"])
-            ),
-            vol.Optional(
-                CONF_AUTO_COLD_ENTITY, default=self._options.get(CONF_AUTO_COLD_ENTITY)
-            ): selector.EntitySelector(
-                selector.EntitySelectorConfig(domain=["switch", "input_boolean", "binary_sensor"])
-            ),
-            vol.Optional(
-                CONF_AUTO_SHADING_ENTITY, default=self._options.get(CONF_AUTO_SHADING_ENTITY)
-            ): selector.EntitySelector(
-                selector.EntitySelectorConfig(domain=["switch", "input_boolean", "binary_sensor"])
-            ),
-            vol.Optional(
-                CONF_AUTO_WIND_ENTITY, default=self._options.get(CONF_AUTO_WIND_ENTITY)
-            ): selector.EntitySelector(
-                selector.EntitySelectorConfig(domain=["switch", "input_boolean", "binary_sensor"])
             ),
             vol.Optional(
                 CONF_MANUAL_OVERRIDE_MINUTES,

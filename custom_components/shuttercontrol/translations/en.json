@@ -134,20 +134,20 @@
   },
   "entity": {
     "sensor": {
-      "target": {
-        "name": "Shutter target for {cover}"
-      },
-      "current_position": {
-        "name": "Current position for {cover}"
-      },
       "next_open": {
-        "name": "Next opening for {cover}"
+        "name": "Next opening:"
       },
       "next_close": {
-        "name": "Next closing for {cover}"
+        "name": "Next closing:"
+      },
+      "reason": {
+        "name": "Reason:"
       },
       "shading_active": {
-        "name": "Shading active for {cover}"
+        "name": "Shading active:"
+      },
+      "ventilation": {
+        "name": "Ventilation"
       }
     },
     "number": {
