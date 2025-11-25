@@ -147,6 +147,9 @@
       },
       "shading_active": {
         "name": "Shading"
+      },
+      "ventilation": {
+        "name": "Ventilation"
       }
     },
     "number": {
