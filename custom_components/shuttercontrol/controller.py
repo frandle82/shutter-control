@@ -139,6 +139,13 @@ class ControllerManager:
             return False
         controller.activate_shading(minutes)
         return True
+    
+    def clear_manual_override(self, cover: str) -> bool:
+        controller = self.controllers.get(cover)
+        if not controller:
+            return False
+        controller.clear_manual_override()
+        return True
 
 
 class ShutterController:
@@ -204,6 +211,8 @@ class ShutterController:
 
     @callback
     def _handle_state_event(self, event) -> None:
+        now = dt_util.utcnow()
+        self._expire_manual_override(now)
         if event.data.get("entity_id") == self.cover:
             tolerance = float(
                 self._position_value(CONF_POSITION_TOLERANCE, DEFAULT_TOLERANCE)
@@ -229,9 +238,18 @@ class ShutterController:
         self.hass.async_create_task(self._evaluate("time"))
 
     def set_manual_override(self, minutes: int) -> None:
-        duration = minutes or self.config.get(CONF_MANUAL_OVERRIDE_MINUTES, DEFAULT_MANUAL_OVERRIDE_MINUTES)
+        duration = minutes or self.config.get(
+            CONF_MANUAL_OVERRIDE_MINUTES, DEFAULT_MANUAL_OVERRIDE_MINUTES
+        )
         self._manual_until = dt_util.utcnow() + timedelta(minutes=duration)
         self._reason = "manual_override"
+        self._refresh_next_events(dt_util.utcnow())
+        self._publish_state()
+    
+    def clear_manual_override(self) -> None:
+        self._manual_until = None
+        if self._reason in {"manual_override", "manual_shading"}:
+            self._reason = None
         self._refresh_next_events(dt_util.utcnow())
         self._publish_state()
 
@@ -242,8 +260,15 @@ class ShutterController:
             self._set_position(self.config.get(CONF_SHADING_POSITION), "manual_shading")
         )
 
+    def _expire_manual_override(self, now: datetime) -> None:
+        if self._manual_until and now >= self._manual_until:
+            self._manual_until = None
+            if self._reason in {"manual_override", "manual_shading"}:
+                self._reason = None
+
     async def _evaluate(self, trigger: str) -> None:
         now = dt_util.utcnow()
+        self._expire_manual_override(now)
         if self._manual_until and now < self._manual_until:
             self._refresh_next_events(now)
             self._publish_state()
@@ -545,13 +570,37 @@ class ShutterController:
         return sensors or []
 
     def _refresh_next_events(self, now: datetime) -> None:
+        candidates_open: list[datetime] = []
+        candidates_close: list[datetime] = []
+        if self._auto_enabled(CONF_AUTO_SUN):
+            sun_state = self.hass.states.get("sun.sun")
+            sun_next_rising = sun_state and sun_state.attributes.get("next_rising")
+            sun_next_setting = sun_state and sun_state.attributes.get("next_setting")
+            next_rising = self._parse_datetime_attr(sun_next_rising)
+            next_setting = self._parse_datetime_attr(sun_next_setting)
+            if next_rising:
+                candidates_open.append(next_rising)
+            if next_setting:
+                candidates_close.append(next_setting)
         workday = self._is_workday()
-        self._next_open = self._next_time_for_point(
-            self._time_setting(workday, True), now
-        )
-        self._next_close = self._next_time_for_point(
-            self._time_setting(workday, False), now
-        )
+        next_up = self._next_time_for_point(self._time_setting(workday, True), now)
+        next_down = self._next_time_for_point(self._time_setting(workday, False), now)
+        if self._auto_enabled(CONF_AUTO_UP) and next_up:
+            candidates_open.append(next_up)
+        if self._auto_enabled(CONF_AUTO_DOWN) and next_down:
+            candidates_close.append(next_down)
+        self._next_open = min(candidates_open) if candidates_open else None
+        self._next_close = min(candidates_close) if candidates_close else None
+        
+    def _parse_datetime_attr(self, value: datetime | str | None) -> datetime | None:
+        if isinstance(value, datetime):
+            return value
+        if not value:
+            return None
+        parsed = dt_util.parse_datetime(str(value))
+        if parsed:
+            return dt_util.as_utc(parsed)
+        return None
 
     def _next_time_for_point(self, scheduled: time | None, now: datetime) -> datetime | None:
         if not scheduled:
