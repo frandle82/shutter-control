@@ -14,7 +14,23 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.util import slugify
 
 from .const import CONF_AUTO_SHADING, CONF_NAME, DEFAULT_NAME, DOMAIN, SIGNAL_STATE_UPDATED
-from .controller import ControllerManager
+from .controller import ControllerManager, IDLE_REASON
+
+REASON_LABELS = {
+    "manual_override": "Manuelle Steuerung",
+    "manual_shading": "Beschattung aktiv",
+    "shading": "Beschattung aktiv",
+    "shading_end_close": "Beschattung deaktiv",
+    "shading_end_open": "Beschattung deaktiv",
+    "sun_close": "Beschattung aktiv",
+    "scheduled_close": "Schließung Zeit",
+    "scheduled_open": "Öffnung Zeit",
+    "ventilation": "Lüftung",
+    "wind_protection": "Windschutz",
+    "resident_asleep": "Bewohner schläft",
+    "cold_protection": "Kälteschutz",
+    IDLE_REASON: "Keine Aktion",
+}
 
 def _instance_name(entry: ConfigEntry) -> str:
     return entry.options.get(CONF_NAME, entry.data.get(CONF_NAME, entry.title or DEFAULT_NAME))
@@ -56,20 +72,34 @@ class ShutterBaseSensor(SensorEntity):
         self._attr_unique_id = f"{entry.entry_id}-{slug}-{suffix}"
         self._attr_translation_key = translation_key
         self._attr_translation_placeholders = {"cover": slug}
+    
+    def _normalize_dt(self, value: datetime | str | None) -> datetime | None:
+        """Ensure dispatcher values are stored as timezone-aware datetimes."""
+
+        if isinstance(value, datetime):
+            return value
+        if not value:
+            return None
+        parsed = dt_util.parse_datetime(str(value))
+        if parsed:
+            return dt_util.as_utc(parsed)
+        return None
 
     @property
     def extra_state_attributes(self):
         return {
-            "reason": self._reason,
-            "manual_override_until": self._manual_until.isoformat() if self._manual_until else None,
+            "reason": self._reason or IDLE_REASON,
+            "manual_override_until": self._manual_until.isoformat() if isinstance(self._manual_until, datetime) else self._manual_until,
             "cover_entity": self.cover,
-            "next_open": self._next_open.isoformat() if self._next_open else None,
-            "next_close": self._next_close.isoformat() if self._next_close else None,
+            "next_open": self._next_open.isoformat() if isinstance(self._next_open, datetime) else self._next_open,
+            "next_close": self._next_close.isoformat() if isinstance(self._next_close, datetime) else self._next_close,
             "shading_enabled": self._shading_enabled,
             "shading_active": self._shading_active,
             "ventilation": self._ventilation_active,
             "manual_override": bool(
-                self._manual_until and dt_util.utcnow() < self._manual_until
+                isinstance(self._manual_until, datetime)
+                and self._manual_until
+                and dt_util.utcnow() < self._manual_until
             ),
         }
 
@@ -104,8 +134,12 @@ class ShutterBaseSensor(SensorEntity):
                 self._shading_active,
                 self._ventilation_active,
             ) = snapshot
+            self._manual_until = self._normalize_dt(self._manual_until)
+            self._next_open = self._normalize_dt(self._next_open)
+            self._next_close = self._normalize_dt(self._next_close)
+            self._reason = self._reason or IDLE_REASON
         else:
-            self._reason = "idle"
+            self._reason = IDLE_REASON
             self._shading_enabled = False
             self._shading_active = False
             self._ventilation_active = False
@@ -141,13 +175,14 @@ class ShutterBaseSensor(SensorEntity):
     ) -> None:
         if entry_id != self.entry.entry_id or cover != self.cover:
             return
-        self._reason = reason
-        self._manual_until = manual_until
-        self._next_open = next_open
-        self._next_close = next_close
+        self._target = target
+        self._reason = reason or IDLE_REASON
+        self._manual_until = self._normalize_dt(manual_until)
+        self._next_open = self._normalize_dt(next_open)
+        self._next_close = self._normalize_dt(next_close)
         self._shading_enabled = shading_enabled
-        self._shading_active = shading_active
-        self._ventilation_active = ventilation
+        self._shading_active = bool(shading_active)
+        self._ventilation_active = bool(ventilation)
         self.async_write_ha_state()
 
 
@@ -188,7 +223,8 @@ class ShutterReasonSensor(ShutterBaseSensor):
 
     @property
     def native_value(self) -> str | None:
-        return self._reason
+        code = self._reason or IDLE_REASON
+        return REASON_LABELS.get(code, code)
 
 class ShutterShadingActiveSensor(ShutterBaseSensor):
     """Expose whether shading mode is active."""
@@ -200,7 +236,7 @@ class ShutterShadingActiveSensor(ShutterBaseSensor):
 
     @property
     def native_value(self) -> bool:
-        return self._shading_active
+        return bool(self._shading_active)
 
     @property
     def available(self) -> bool:
@@ -217,4 +253,4 @@ class ShutterVentilationSensor(ShutterBaseSensor):
 
     @property
     def native_value(self) -> bool:
-        return self._ventilation_active
+        return bool(self._ventilation_active)
