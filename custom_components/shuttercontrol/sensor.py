@@ -90,6 +90,22 @@ class ShutterBaseSensor(SensorEntity):
                 self._handle_state_update,
             )
         )
+        manager: ControllerManager = self.hass.data[DOMAIN][self.entry.entry_id]
+        snapshot = manager.state_snapshot(self.cover)
+        if snapshot:
+            (
+                self._target,
+                self._reason,
+                self._manual_until,
+                self._next_open,
+                self._next_close,
+                self._current_position,
+                self._shading_enabled,
+                self._shading_active,
+                self._ventilation_active,
+            ) = snapshot
+            self.async_write_ha_state()
+            manager.publish_state(self.cover)
 
     @callback
     def _cover_label(self) -> str:
