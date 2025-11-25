@@ -302,7 +302,7 @@ class ShutterController:
         ventilation_active = self._reason == "ventilation"
         return (
             self._target,
-            self._reason,
+            self._reason or idle,
             self._manual_until,
             self._next_open,
             self._next_close,
@@ -658,6 +658,18 @@ class ShutterController:
             candidates_close.append(next_down)
         self._next_open = min(candidates_open) if candidates_open else None
         self._next_close = min(candidates_close) if candidates_close else None
+
+        # Ensure timestamp sensors have a concrete value even if dispatcher
+        # events have not yet run or if an automation toggle briefly disabled
+        # schedule collection.
+        if self._next_open is None:
+            fallback_open = self._next_time_for_point(self._time_setting(workday, True), now)
+            if fallback_open:
+                self._next_open = fallback_open
+        if self._next_close is None:
+            fallback_close = self._next_time_for_point(self._time_setting(workday, False), now)
+            if fallback_close:
+                self._next_close = fallback_close
         
     def _parse_datetime_attr(self, value: datetime | str | None) -> datetime | None:
         if isinstance(value, datetime):
@@ -688,7 +700,7 @@ class ShutterController:
             self.entry.entry_id,
             self.cover,
             self._target,
-            self._reason,
+            self._reason or "idle",
             self._manual_until,
             self._next_open,
             self._next_close,
