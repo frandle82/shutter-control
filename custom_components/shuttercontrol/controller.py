@@ -63,6 +63,10 @@ from .const import (
     CONF_WORKDAY_SENSOR,
     DEFAULT_AUTOMATION_FLAGS,
     DEFAULT_MANUAL_OVERRIDE_MINUTES,
+    DEFAULT_TIME_DOWN_NON_WORKDAY,
+    DEFAULT_TIME_DOWN_WORKDAY,
+    DEFAULT_TIME_UP_NON_WORKDAY,
+    DEFAULT_TIME_UP_WORKDAY,
     DEFAULT_OPEN_POSITION,
     DEFAULT_TOLERANCE,
     DEFAULT_VENTILATE_POSITION,
@@ -565,9 +569,17 @@ class ShutterController:
     def _time_setting(self, workday: bool, is_up: bool) -> time | None:
         if workday:
             value_key = CONF_TIME_UP_WORKDAY if is_up else CONF_TIME_DOWN_WORKDAY
+            fallback = DEFAULT_TIME_UP_WORKDAY if is_up else DEFAULT_TIME_DOWN_WORKDAY
         else:
             value_key = CONF_TIME_UP_NON_WORKDAY if is_up else CONF_TIME_DOWN_NON_WORKDAY
-        return _parse_time(self.config.get(value_key))
+            fallback = (
+                DEFAULT_TIME_UP_NON_WORKDAY if is_up else DEFAULT_TIME_DOWN_NON_WORKDAY
+            )
+
+        parsed = _parse_time(self.config.get(value_key))
+        if parsed:
+            return parsed
+        return _parse_time(fallback)
 
     def _event_due(self, target: datetime | None, now: datetime) -> bool:
         if not target:
