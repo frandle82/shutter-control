@@ -22,9 +22,10 @@ REASON_LABELS = {
     "shading": "Beschattung aktiv",
     "shading_end_close": "Beschattung deaktiv",
     "shading_end_open": "Beschattung deaktiv",
-    "sun_close": "Beschattung aktiv",
-    "scheduled_close": "Schließung Zeit",
-    "scheduled_open": "Öffnung Zeit",
+    "sun_close": "Schließung(Sonnenuntergang)",
+    "sun_open": "Öffnung(Sonnenaufgang)",
+    "scheduled_close": "Schließung(Zeit)",
+    "scheduled_open": "Öffnung(Zeit)",
     "ventilation": "Lüftung",
     "wind_protection": "Windschutz",
     "resident_asleep": "Bewohner schläft",
@@ -160,27 +161,32 @@ class ShutterBaseSensor(SensorEntity):
         return self.cover.split(".")[-1]
 
     @callback
-    def _handle_state_update(
-        self,
-        entry_id: str,
-        cover: str,
-        reason: str | None,
-        manual_until: datetime | None,
-        next_open: datetime | None,
-        next_close: datetime | None,
-        shading_enabled: bool,
-        shading_active: bool,
-        ventilation: bool = False,
-        *_: object,
-    ) -> None:
+    def _handle_state_update(self, *payload: object) -> None:
+        # Normalize dispatcher payloads from different versions and pad any
+        # missing values to avoid runtime NameError issues during unpacking.
+        (
+            entry_id,
+            cover,
+            target,
+            reason,
+            manual_until,
+            next_open,
+            next_close,
+            current_position,
+            shading_enabled,
+            shading_active,
+            ventilation,
+            *_,
+        ) = (*payload, None, None, None, None, None, None, None, False, False, False)
         if entry_id != self.entry.entry_id or cover != self.cover:
             return
-        self._target = target
-        self._reason = reason or IDLE_REASON
-        self._manual_until = self._normalize_dt(manual_until)
-        self._next_open = self._normalize_dt(next_open)
-        self._next_close = self._normalize_dt(next_close)
-        self._shading_enabled = shading_enabled
+        self._target = target  # type: ignore[assignment]
+        self._reason = (reason or IDLE_REASON)  # type: ignore[arg-type]
+        self._manual_until = self._normalize_dt(manual_until)  # type: ignore[arg-type]
+        self._next_open = self._normalize_dt(next_open)  # type: ignore[arg-type]
+        self._next_close = self._normalize_dt(next_close)  # type: ignore[arg-type]
+        self._current_position = current_position  # type: ignore[assignment]
+        self._shading_enabled = bool(shading_enabled)
         self._shading_active = bool(shading_active)
         self._ventilation_active = bool(ventilation)
         self.async_write_ha_state()
