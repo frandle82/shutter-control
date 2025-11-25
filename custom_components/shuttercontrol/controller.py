@@ -77,6 +77,7 @@ from .const import (
     SIGNAL_STATE_UPDATED,
 )
 
+IDLE_REASON = "idle"
 
 def _parse_time(value: str | datetime | None) -> time | None:
     if not value:
@@ -166,7 +167,17 @@ class ControllerManager:
         ] | None:
             controller = self.controllers.get(cover)
             if not controller:
-                return None
+                return (
+                    None,
+                    IDLE_REASON,
+                    None,
+                    None,
+                    None,
+                    None,
+                    False,
+                    False,
+                    False,
+                )
             return controller.state_snapshot()
 
 class ShutterController:
@@ -183,6 +194,10 @@ class ShutterController:
         self._reason: str | None = None
         self._next_open: datetime | None = None
         self._next_close: datetime | None = None
+        # Position helpers were removed, but keep the mapping available so
+        # legacy config entries that still reference helper entities do not
+        # cause attribute errors during lookups.
+        self._position_entity_map: dict[str, str] = {}
         self._auto_entity_map = {
             CONF_AUTO_UP: CONF_AUTO_UP_ENTITY,
             CONF_AUTO_DOWN: CONF_AUTO_DOWN_ENTITY,
@@ -302,7 +317,7 @@ class ShutterController:
         ventilation_active = self._reason == "ventilation"
         return (
             self._target,
-            self._reason or idle,
+            self._reason or IDLE_REASON,
             self._manual_until,
             self._next_open,
             self._next_close,
@@ -700,7 +715,7 @@ class ShutterController:
             self.entry.entry_id,
             self.cover,
             self._target,
-            self._reason or "idle",
+            self._reason or IDLE_REASON,
             self._manual_until,
             self._next_open,
             self._next_close,
