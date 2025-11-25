@@ -28,6 +28,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
                 ShutterNextOpenSensor(entry, cover),
                 ShutterNextCloseSensor(entry, cover),
                 ShutterVentilationSensor(entry, cover),
+                ShutterReasonSensor(entry, cover),
             ]
         )
         if controller.config.get(CONF_AUTO_SHADING):
@@ -149,6 +150,17 @@ class ShutterNextCloseSensor(ShutterBaseSensor):
     def native_value(self) -> datetime | None:
         return self._next_close
 
+class ShutterReasonSensor(ShutterBaseSensor):
+    """Expose the last automation reason."""
+
+    _attr_icon = "mdi:information"
+
+    def __init__(self, entry: ConfigEntry, cover: str) -> None:
+        super().__init__(entry, cover, "reason", "reason")
+
+    @property
+    def native_value(self) -> str | None:
+        return self._reason
 
 class ShutterShadingActiveSensor(ShutterBaseSensor):
     """Expose whether shading mode is active."""
@@ -164,7 +176,7 @@ class ShutterShadingActiveSensor(ShutterBaseSensor):
 
     @property
     def available(self) -> bool:
-        return self._shading_enabled
+        return True
 
 
 class ShutterVentilationSensor(ShutterBaseSensor):
