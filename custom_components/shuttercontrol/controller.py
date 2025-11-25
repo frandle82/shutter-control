@@ -313,8 +313,8 @@ class ShutterController:
         self._refresh_next_events(dt_util.utcnow())
         current_position = self._current_position()
         shading_enabled = self._auto_enabled(CONF_AUTO_SHADING)
-        shading_active = shading_enabled and self._reason in {"shading", "manual_shading"}
-        ventilation_active = self._reason == "ventilation"
+        shading_active = self._shading_is_active(current_position, shading_enabled)
+        ventilation_active = self._ventilation_is_active(current_position)
         return (
             self._target,
             self._reason or IDLE_REASON,
@@ -654,7 +654,9 @@ class ShutterController:
     def _refresh_next_events(self, now: datetime) -> None:
         candidates_open: list[datetime] = []
         candidates_close: list[datetime] = []
-        if self._auto_enabled(CONF_AUTO_SUN):
+
+        sun_enabled = self._auto_enabled(CONF_AUTO_SUN)
+        if sun_enabled:
             sun_state = self.hass.states.get("sun.sun")
             sun_next_rising = sun_state and sun_state.attributes.get("next_rising")
             sun_next_setting = sun_state and sun_state.attributes.get("next_setting")
@@ -667,21 +669,22 @@ class ShutterController:
         workday = self._is_workday()
         next_up = self._next_time_for_point(self._time_setting(workday, True), now)
         next_down = self._next_time_for_point(self._time_setting(workday, False), now)
-        if self._auto_enabled(CONF_AUTO_UP) and next_up:
-            candidates_open.append(next_up)
-        if self._auto_enabled(CONF_AUTO_DOWN) and next_down:
-            candidates_close.append(next_down)
+        if not sun_enabled:
+            if self._auto_enabled(CONF_AUTO_UP) and next_up:
+                candidates_open.append(next_up)
+            if self._auto_enabled(CONF_AUTO_DOWN) and next_down:
+                candidates_close.append(next_down)
         self._next_open = min(candidates_open) if candidates_open else None
         self._next_close = min(candidates_close) if candidates_close else None
 
         # Ensure timestamp sensors have a concrete value even if dispatcher
         # events have not yet run or if an automation toggle briefly disabled
         # schedule collection.
-        if self._next_open is None:
+        if not sun_enabled and self._next_open is None:
             fallback_open = self._next_time_for_point(self._time_setting(workday, True), now)
             if fallback_open:
                 self._next_open = fallback_open
-        if self._next_close is None:
+        if not sun_enabled and self._next_close is None:
             fallback_close = self._next_time_for_point(self._time_setting(workday, False), now)
             if fallback_close:
                 self._next_close = fallback_close
@@ -708,7 +711,8 @@ class ShutterController:
     def _publish_state(self) -> None:
         current_position = self._current_position()
         shading_enabled = self._auto_enabled(CONF_AUTO_SHADING)
-        shading_active = shading_enabled and self._reason in {"shading", "manual_shading"}
+        shading_active = self._shading_is_active(current_position, shading_enabled)
+        ventilation_active = self._ventilation_is_active(current_position)
         async_dispatcher_send(
             self.hass,
             SIGNAL_STATE_UPDATED,
@@ -723,3 +727,23 @@ class ShutterController:
             shading_enabled,
             shading_active,
         )
+
+    def _position_matches(self, target: float | None, current: float | None) -> bool:
+        if target is None or current is None:
+            return False
+        tolerance = float(self._position_value(CONF_POSITION_TOLERANCE, DEFAULT_TOLERANCE))
+        return abs(current - float(target)) <= tolerance
+
+    def _shading_is_active(self, current_position: float | None, shading_enabled: bool) -> bool:
+        if not shading_enabled:
+            return False
+        if self._reason not in {"shading", "manual_shading"}:
+            return False
+        shading_target = self._position_value(CONF_SHADING_POSITION, DEFAULT_SHADING_POSITION)
+        return self._position_matches(shading_target, current_position)
+
+    def _ventilation_is_active(self, current_position: float | None) -> bool:
+        if self._reason != "ventilation":
+            return False
+        vent_target = self._position_value(CONF_VENTILATE_POSITION, DEFAULT_VENTILATE_POSITION)
+        return self._position_matches(vent_target, current_position)
