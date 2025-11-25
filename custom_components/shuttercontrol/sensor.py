@@ -104,7 +104,18 @@ class ShutterBaseSensor(SensorEntity):
                 self._shading_active,
                 self._ventilation_active,
             ) = snapshot
-            self.async_write_ha_state()
+        else:
+            self._reason = "idle"
+            self._shading_enabled = False
+            self._shading_active = False
+            self._ventilation_active = False
+
+        self.async_write_ha_state()
+
+        # Some Home Assistant instances may still hold an older manager
+        # instance that does not expose ``publish_state``. Guard the call so
+        # sensors can finish setup instead of failing with ``AttributeError``.
+        if hasattr(manager, "publish_state"):
             manager.publish_state(self.cover)
 
     @callback
@@ -125,7 +136,8 @@ class ShutterBaseSensor(SensorEntity):
         next_close: datetime | None,
         shading_enabled: bool,
         shading_active: bool,
-        ventilation: bool,
+        ventilation: bool = False,
+        *_: object,
     ) -> None:
         if entry_id != self.entry.entry_id or cover != self.cover:
             return
