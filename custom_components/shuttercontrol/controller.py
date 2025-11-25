@@ -147,6 +147,23 @@ class ControllerManager:
         controller.clear_manual_override()
         return True
 
+    def state_snapshot(
+        self, cover: str
+        ) -> tuple[
+            float | None,
+            str | None,
+            datetime | None,
+            datetime | None,
+            datetime | None,
+            float | None,
+            bool,
+            bool,
+            bool,
+        ] | None:
+            controller = self.controllers.get(cover)
+            if not controller:
+                return None
+            return controller.state_snapshot()
 
 class ShutterController:
     """Translate blueprint-style parameters into runtime cover control."""
@@ -196,6 +213,7 @@ class ShutterController:
             )
         self._refresh_next_events(dt_util.utcnow())
         self._publish_state()
+
 
     async def async_unload(self) -> None:
         while self._unsubs:
@@ -252,6 +270,43 @@ class ShutterController:
             self._reason = None
         self._refresh_next_events(dt_util.utcnow())
         self._publish_state()
+
+    def publish_state(self) -> None:
+        """Expose the current state via dispatcher for newly added entities."""
+        self._refresh_next_events(dt_util.utcnow())
+        self._publish_state()
+
+    def state_snapshot(
+        self,
+    ) -> tuple[
+        float | None,
+        str | None,
+        datetime | None,
+        datetime | None,
+        datetime | None,
+        float | None,
+        bool,
+        bool,
+        bool,
+    ]:
+        """Provide the current state values without dispatching updates."""
+
+        self._refresh_next_events(dt_util.utcnow())
+        current_position = self._current_position()
+        shading_enabled = self._auto_enabled(CONF_AUTO_SHADING)
+        shading_active = shading_enabled and self._reason in {"shading", "manual_shading"}
+        ventilation_active = self._reason == "ventilation"
+        return (
+            self._target,
+            self._reason,
+            self._manual_until,
+            self._next_open,
+            self._next_close,
+            current_position,
+            shading_enabled,
+            shading_active,
+            ventilation_active,
+        )
 
     def activate_shading(self, minutes: int | None = None) -> None:
         duration = minutes or self.config.get(CONF_MANUAL_OVERRIDE_MINUTES, DEFAULT_MANUAL_OVERRIDE_MINUTES)
