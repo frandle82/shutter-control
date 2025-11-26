@@ -225,7 +225,9 @@ class ShutterOptionsFlow(config_entries.OptionsFlow):
 
     def __init__(self, config_entry: config_entries.ConfigEntry) -> None:
         self.config_entry = config_entry
-        self._options = _with_automation_defaults(dict(config_entry.data | config_entry.options))
+        self._options = self._sanitize_options(
+            _with_automation_defaults(dict(config_entry.data | config_entry.options))
+        )
 
     def _clean_user_input(self, user_input: dict) -> dict:
         """Drop empty selector values while keeping valid falsy values."""
@@ -235,7 +237,6 @@ class ShutterOptionsFlow(config_entries.OptionsFlow):
             if value is not None and value != ""
         }
 
-
     def _time_default(self, key: str, legacy: tuple[str, ...], fallback: str) -> str:
         if key in self._options:
             return self._options.get(key, fallback)
@@ -244,10 +245,29 @@ class ShutterOptionsFlow(config_entries.OptionsFlow):
                 return self._options.get(legacy_key, fallback)
         return fallback
 
+    def _optional_default(self, key: str):
+        """Return a safe default for optional selectors."""
+
+        if key in self._options:
+            value = self._options.get(key)
+            if value not in (None, ""):
+                return value
+        return vol.UNDEFINED
+
+    def _sanitize_options(self, options: dict) -> dict:
+        """Remove empty selector placeholders from stored options."""
+
+        return {
+            key: value
+            for key, value in options.items()
+            if value not in (None, "")
+        }
+
     async def async_step_init(self, user_input=None) -> FlowResult:
         if user_input is not None:
             clean_input = self._clean_user_input(user_input)
             name = clean_input.pop(CONF_NAME, self.config_entry.title).strip() or DEFAULT_NAME
+            covers = clean_input.get(CONF_COVERS, self._options.get(CONF_COVERS, []))
             mapping: dict[str, list[str]] = {}
             for cover in covers:
                 mapping[cover] = clean_input.get(
@@ -277,26 +297,14 @@ class ShutterOptionsFlow(config_entries.OptionsFlow):
                 CONF_POSITION_TOLERANCE,
                 default=self._options.get(CONF_POSITION_TOLERANCE, DEFAULT_TOLERANCE),
             ): int,
-            vol.Optional(CONF_RESIDENT_SENSOR, default=self._options.get(CONF_RESIDENT_SENSOR)): selector.EntitySelector(
+            vol.Optional(
+                CONF_RESIDENT_SENSOR, default=self._optional_default(CONF_RESIDENT_SENSOR)
+            ): selector.EntitySelector(
                 selector.EntitySelectorConfig(domain=["binary_sensor", "switch"])
             ),
             vol.Optional(
-                CONF_TIME_UP_WORKDAY,
-                default=self._options.get(CONF_TIME_UP_WORKDAY, DEFAULT_TIME_UP_WORKDAY),
-            ): selector.TimeSelector(),
-            vol.Optional(
-                CONF_TIME_UP_NON_WORKDAY,
-                default=self._options.get(CONF_TIME_UP_NON_WORKDAY, DEFAULT_TIME_UP_NON_WORKDAY),
-            ): selector.TimeSelector(),
-            vol.Optional(
-                CONF_TIME_DOWN_WORKDAY,
-                default=self._options.get(CONF_TIME_DOWN_WORKDAY, DEFAULT_TIME_DOWN_WORKDAY),
-            ): selector.TimeSelector(),
-            vol.Optional(
-                CONF_TIME_DOWN_NON_WORKDAY,
-                default=self._options.get(CONF_TIME_DOWN_NON_WORKDAY, DEFAULT_TIME_DOWN_NON_WORKDAY),
-            ): selector.TimeSelector(),
-            vol.Optional(CONF_WORKDAY_SENSOR, default=self._options.get(CONF_WORKDAY_SENSOR)): selector.EntitySelector(
+                CONF_WORKDAY_SENSOR, default=self._optional_default(CONF_WORKDAY_SENSOR)
+            ): selector.EntitySelector(
                 selector.EntitySelectorConfig(domain=["binary_sensor", "sensor"])
             ),
             vol.Optional(
@@ -308,7 +316,10 @@ class ShutterOptionsFlow(config_entries.OptionsFlow):
         if auto_brightness:
             schema.update(
                 {
-                    vol.Optional(CONF_BRIGHTNESS_SENSOR, default=self._options.get(CONF_BRIGHTNESS_SENSOR)): selector.EntitySelector(
+                    vol.Optional(
+                        CONF_BRIGHTNESS_SENSOR,
+                        default=self._optional_default(CONF_BRIGHTNESS_SENSOR),
+                    ): selector.EntitySelector(
                         selector.EntitySelectorConfig(domain=["sensor"],device_class=["illuminance"])
                     ),
                     vol.Optional(
@@ -371,13 +382,13 @@ class ShutterOptionsFlow(config_entries.OptionsFlow):
                 {
                     vol.Optional(
                         CONF_TEMPERATURE_SENSOR_INDOOR,
-                        default=self._options.get(CONF_TEMPERATURE_SENSOR_INDOOR),
+                        default=self._options.default(CONF_TEMPERATURE_SENSOR_INDOOR),
                     ): selector.EntitySelector(
                         selector.EntitySelectorConfig(domain=["sensor"])
                     ),
                     vol.Optional(
                         CONF_TEMPERATURE_SENSOR_OUTDOOR,
-                        default=self._options.get(CONF_TEMPERATURE_SENSOR_OUTDOOR),
+                        default=self._options.default(CONF_TEMPERATURE_SENSOR_OUTDOOR),
                     ): selector.EntitySelector(
                         selector.EntitySelectorConfig(domain=["sensor"])
                     ),
@@ -395,7 +406,7 @@ class ShutterOptionsFlow(config_entries.OptionsFlow):
                     ): vol.Coerce(float),
                     vol.Optional(
                         CONF_COLD_PROTECTION_FORECAST_SENSOR,
-                        default=self._options.get(CONF_COLD_PROTECTION_FORECAST_SENSOR),
+                        default=self._options.default(CONF_COLD_PROTECTION_FORECAST_SENSOR),
                     ): selector.EntitySelector(
                         selector.EntitySelectorConfig(domain=["sensor", "weather"])
                     ),
