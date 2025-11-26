@@ -1,12 +1,15 @@
 """Config and options flow for Shutter Control."""
 from __future__ import annotations
 
+import logging
+
 import voluptuous as vol
 from homeassistant import config_entries
 from homeassistant.core import callback
 from homeassistant.data_entry_flow import FlowResult
 from homeassistant.helpers import selector
 from homeassistant.util import slugify
+from homeassistant.util import dt as dt_util
 
 from .const import (
     CONF_AUTO_BRIGHTNESS,
@@ -69,6 +72,7 @@ from .const import (
     DOMAIN,
 )
 
+
 def _with_automation_defaults(config: dict) -> dict:
     """Ensure automation toggles fall back to default values."""
 
@@ -77,6 +81,21 @@ def _with_automation_defaults(config: dict) -> dict:
         **DEFAULT_MANUAL_OVERRIDE_FLAGS,
         **config,
     }
+
+
+LOGGER = logging.getLogger(__name__)
+
+
+def _time_default(value, fallback: str | None = None):
+    """Return a time object for selectors, falling back safely."""
+
+    for candidate in (value, fallback):
+        if candidate in (None, "", vol.UNDEFINED):
+            continue
+        parsed = dt_util.parse_time(str(candidate))
+        if parsed:
+            return parsed
+    return vol.UNDEFINED
 
 
 class ShutterControlFlow(config_entries.ConfigFlow, domain=DOMAIN):
@@ -198,7 +217,16 @@ class ShutterControlFlow(config_entries.ConfigFlow, domain=DOMAIN):
                             ]
                         )
                     ),
-                    vol.Optional(CONF_MANUAL_OVERRIDE_RESET_TIME, default=self._data.get(CONF_MANUAL_OVERRIDE_RESET_TIME, DEFAULT_MANUAL_OVERRIDE_RESET_TIME)): selector.TimeSelector(),
+                    vol.Optional(
+                        CONF_MANUAL_OVERRIDE_RESET_TIME,
+                        default=_time_default(
+                            self._data.get(
+                                CONF_MANUAL_OVERRIDE_RESET_TIME,
+                                DEFAULT_MANUAL_OVERRIDE_RESET_TIME,
+                            ),
+                            DEFAULT_MANUAL_OVERRIDE_RESET_TIME,
+                        ),
+                    ): selector.TimeSelector(),
                     vol.Optional(CONF_MANUAL_OVERRIDE_MINUTES, default=self._data.get(CONF_MANUAL_OVERRIDE_MINUTES, DEFAULT_MANUAL_OVERRIDE_MINUTES)): vol.Coerce(int),
                     vol.Optional(CONF_MANUAL_OVERRIDE_BLOCK_OPEN, default=self._data.get(CONF_MANUAL_OVERRIDE_BLOCK_OPEN, DEFAULT_MANUAL_OVERRIDE_FLAGS[CONF_MANUAL_OVERRIDE_BLOCK_OPEN])): bool,
                     vol.Optional(CONF_MANUAL_OVERRIDE_BLOCK_CLOSE, default=self._data.get(CONF_MANUAL_OVERRIDE_BLOCK_CLOSE, DEFAULT_MANUAL_OVERRIDE_FLAGS[CONF_MANUAL_OVERRIDE_BLOCK_CLOSE])): bool,
@@ -235,9 +263,7 @@ class ShutterOptionsFlow(config_entries.OptionsFlow):
 
     def __init__(self, config_entry: config_entries.ConfigEntry) -> None:
         self._config_entry = config_entry
-        self._options = self._sanitize_options(
-            _with_automation_defaults(dict(config_entry.data | config_entry.options))
-        )
+        self._options = self._normalize_options(config_entry)
 
     def _clean_user_input(self, user_input: dict) -> dict:
         """Drop empty selector values while keeping valid falsy values."""
@@ -265,9 +291,42 @@ class ShutterOptionsFlow(config_entries.OptionsFlow):
             if value not in (None, "", vol.UNDEFINED)
         }
 
+    def _normalize_options(
+        self, config_entry: config_entries.ConfigEntry | None, overrides: dict | None = None
+    ) -> dict:
+        """Merge stored data/options with defaults, overrides, and sanitize them."""
+
+
+        merged: dict = {}
+        if config_entry:
+            merged.update(dict(config_entry.data or {}))
+            merged.update(dict(config_entry.options or {}))
+
+        merged = _with_automation_defaults(merged)
+        if overrides:
+            merged.update(overrides)
+        sanitized = self._sanitize_options(merged)
+
+        covers = sanitized.get(CONF_COVERS, [])
+        if not isinstance(covers, list):
+            covers = list(covers) if covers else []
+        sanitized[CONF_COVERS] = covers
+
+        windows = sanitized.get(CONF_WINDOW_SENSORS, {})
+        if not isinstance(windows, dict):
+            windows = {}
+        sanitized[CONF_WINDOW_SENSORS] = {
+            cover: sensors if isinstance(sensors, list) else []
+            for cover, sensors in windows.items()
+            if cover
+        }
+
+        return sanitized
+
     async def async_step_init(self, user_input=None) -> FlowResult:
         if user_input is not None:
             clean_input = self._clean_user_input(user_input)
+
             name = clean_input.pop(CONF_NAME, self._config_entry.title).strip() or DEFAULT_NAME
             covers = clean_input.get(CONF_COVERS, self._options.get(CONF_COVERS, []))
             mapping: dict[str, list[str]] = {}
@@ -276,11 +335,20 @@ class ShutterOptionsFlow(config_entries.OptionsFlow):
                     self._cover_key(cover), self._existing_windows_for_cover(cover)
                 )
             clean_input[CONF_WINDOW_SENSORS] = mapping
-            self._options.update({CONF_NAME: name} | clean_input)
-            user_input[CONF_WINDOW_SENSORS] = mapping
-            self._options.update({CONF_NAME: name} | user_input)
-            self._options = self._sanitize_options(self._options)
-            await self.hass.config_entries.async_update_entry(self._config_entry, title=name)
+            overrides = {CONF_NAME: name} | clean_input
+            try:
+                self._options = self._normalize_options(self._config_entry, overrides)
+            except Exception:  # pragma: no cover - defensive fallback for HA runtime
+                _LOGGER.exception("Failed to normalize shutter control options")
+                merged = {
+                    **(self._config_entry.data or {}),
+                    **(self._config_entry.options or {}),
+                    **overrides,
+                }
+                self._options = self._sanitize_options(
+                    _with_automation_defaults(merged)
+                )
+            self.hass.config_entries.async_update_entry(self._config_entry, title=name)
             return self.async_create_entry(title="", data=self._options)
 
         auto_brightness = bool(self._options.get(CONF_AUTO_BRIGHTNESS, True))
@@ -322,8 +390,12 @@ class ShutterOptionsFlow(config_entries.OptionsFlow):
             ),
             vol.Optional(
                 CONF_MANUAL_OVERRIDE_RESET_TIME,
-                default=self._options.get(
-                    CONF_MANUAL_OVERRIDE_RESET_TIME, DEFAULT_MANUAL_OVERRIDE_RESET_TIME
+                 default=_time_default(
+                    self._options.get(
+                        CONF_MANUAL_OVERRIDE_RESET_TIME,
+                        DEFAULT_MANUAL_OVERRIDE_RESET_TIME,
+                    ),
+                    DEFAULT_MANUAL_OVERRIDE_RESET_TIME,
                 ),
             ): selector.TimeSelector(),
             vol.Optional(
