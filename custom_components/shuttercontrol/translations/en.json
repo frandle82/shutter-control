@@ -60,9 +60,13 @@
           "temperature_forecast_threshold": "Forecast temperature threshold",
           "cold_protection_temperature": "Close when temperature below",
           "cold_protection_forecast_sensor": "Forecast temperature sensor (optional)",
-          "wind_sensor": "Wind speed sensor",
-          "wind_speed_limit": "Wind speed limit",
-          "manual_override_minutes": "Manual override duration (minutes)",
+          "manual_override_minutes": "Minutes until manual override reset",
+          "manual_override_reset_mode": "Manual override reset",
+          "manual_override_reset_time": "Time to reset manual override",
+          "manual_override_block_open": "Ignore next automatic opening after manual changes",
+          "manual_override_block_close": "Ignore next automatic closing after manual changes",
+          "manual_override_block_ventilate": "Ignore next automatic ventilation after manual changes",
+          "manual_override_block_shading": "Ignore next automatic sun shading after manual changes",
           "auto_up_enabled_entity": "Entity to toggle automatic opening",
           "auto_up_enabled": "Enable automatic opening",
           "auto_down_enabled_entity": "Entity to toggle automatic closing",
@@ -76,9 +80,7 @@
           "auto_cold_protection_enabled_entity": "Entity to toggle cold protection",
           "auto_cold_protection_enabled": "Enable cold night closing",
           "auto_shading_enabled_entity": "Entity to toggle sun shading",
-          "auto_shading_enabled": "Enable sun shading",
-          "auto_wind_protection_enabled_entity": "Entity to toggle wind protection",
-          "auto_wind_protection_enabled": "Enable wind protection"
+          "auto_shading_enabled": "Enable sun shading"
         }
       }
     }
@@ -108,8 +110,6 @@
           "time_down_non_workday": "Close time on holidays",
           "workday_sensor": "Workday helper (optional)",
           "resident_sensor": "Resident/quiet sensor (optional)",
-          "wind_sensor": "Wind speed sensor",
-          "wind_speed_limit": "Wind speed limit",
           "cold_protection_temperature": "Close when temperature below",
           "cold_protection_forecast_sensor": "Forecast temperature sensor (optional)",
           "auto_up_enabled_entity": "Entity to toggle automatic opening",
@@ -125,9 +125,7 @@
           "auto_cold_protection_enabled_entity": "Entity to toggle cold protection",
           "auto_cold_protection_enabled": "Enable cold night closing",
           "auto_shading_enabled_entity": "Entity to toggle sun shading",
-          "auto_shading_enabled": "Enable sun shading",
-          "auto_wind_protection_enabled_entity": "Entity to toggle wind protection",
-          "auto_wind_protection_enabled": "Enable wind protection"
+          "auto_shading_enabled": "Enable sun shading"
         }
       }
     }
