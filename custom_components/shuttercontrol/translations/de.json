@@ -69,9 +69,13 @@
           "temperature_forecast_threshold": "Forecast temperature threshold",
           "cold_protection_temperature": "Schließe bei Temperatur unter",
           "cold_protection_forecast_sensor": "Temperaturvorhersage-Sensor (optional)",
-          "wind_sensor": "Wind speed sensor",
-          "wind_speed_limit": "Wind speed limit",
-          "manual_override_minutes": "Manual override duration (minutes)",
+          "manual_override_minutes": "Minuten bis zum Zurücksetzen des manuellen Overrides",
+          "manual_override_reset_mode": "Manuelles Override zurücksetzen",
+          "manual_override_reset_time": "Uhrzeit zum Zurücksetzen des manuellen Overrides",
+          "manual_override_block_open": "Nächste automatische Öffnung nach manueller Änderung ignorieren",
+          "manual_override_block_close": "Nächste automatische Schließung nach manueller Änderung ignorieren",
+          "manual_override_block_ventilate": "Nächste automatische Lüftung nach manueller Änderung ignorieren",
+          "manual_override_block_shading": "Nächste automatische Beschattung nach manueller Änderung ignorieren",
           "auto_up_enabled_entity": "Entität zum Umschalten des automatischen Öffnens",
           "auto_up_enabled": "Enable automatic opening",
           "auto_down_enabled_entity": "Entität zum Umschalten des automatischen Schließens",
@@ -85,9 +89,7 @@
           "auto_cold_protection_enabled_entity": "Entität zum Umschalten des Kälteschutzes",
           "auto_cold_protection_enabled": "Kaltes Nachtschließen aktivieren",
           "auto_shading_enabled_entity": "Entität zum Umschalten der Beschattung",
-          "auto_shading_enabled": "Enable sun shading",
-          "auto_wind_protection_enabled_entity": "Entität zum Umschalten des Windsensors",
-          "auto_wind_protection_enabled": "Windschutz aktivieren"
+          "auto_shading_enabled": "Enable sun shading"
         }
       }
     }
@@ -117,8 +119,6 @@
           "time_down_non_workday": "Schließzeit an Feiertagen",
           "workday_sensor": "Workday helper (optional)",
           "resident_sensor": "Resident/quiet sensor (optional)",
-          "wind_sensor": "Wind speed sensor",
-          "wind_speed_limit": "Wind speed limit",
           "cold_protection_temperature": "Schließe bei Temperatur unter",
           "cold_protection_forecast_sensor": "Temperaturvorhersage-Sensor (optional)",
           "auto_up_enabled_entity": "Entität zum Umschalten des automatischen Öffnens",
@@ -134,9 +134,7 @@
           "auto_cold_protection_enabled_entity": "Entität zum Umschalten des Kälteschutzes",
           "auto_cold_protection_enabled": "Kaltes Nachtschließen aktivieren",
           "auto_shading_enabled_entity": "Entität zum Umschalten der Beschattung",
-          "auto_shading_enabled": "Enable sun shading",
-          "auto_wind_protection_enabled_entity": "Entität zum Umschalten des Windsensors",
-          "auto_wind_protection_enabled": "Windschutz aktivieren"
+          "auto_shading_enabled": "Enable sun shading"
         }
       }
     }
