@@ -16,7 +16,6 @@ from .const import (
     CONF_AUTO_SUN,
     CONF_AUTO_UP,
     CONF_AUTO_VENTILATE,
-    CONF_AUTO_WIND,
     CONF_COLD_PROTECTION_FORECAST_SENSOR,
     CONF_COLD_PROTECTION_THRESHOLD,
     CONF_BRIGHTNESS_CLOSE_BELOW,
@@ -47,8 +46,6 @@ from .const import (
     CONF_TIME_UP_NON_WORKDAY,
     CONF_TIME_UP_WORKDAY,
     CONF_VENTILATE_POSITION,
-    CONF_WIND_LIMIT,
-    CONF_WIND_SENSOR,
     CONF_WINDOW_SENSORS,
     CONF_WORKDAY_SENSOR,
     DEFAULT_BRIGHTNESS_CLOSE,
@@ -70,7 +67,6 @@ from .const import (
     DEFAULT_COLD_PROTECTION_THRESHOLD,
     DEFAULT_TOLERANCE,
     DEFAULT_VENTILATE_POSITION,
-    DEFAULT_WIND_LIMIT,
     DEFAULT_TIME_DOWN_NON_WORKDAY,
     DEFAULT_TIME_DOWN_WORKDAY,
     DEFAULT_TIME_UP_NON_WORKDAY,
@@ -173,9 +169,6 @@ class ShutterControlFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     vol.Optional(CONF_COLD_PROTECTION_FORECAST_SENSOR): selector.EntitySelector(
                         selector.EntitySelectorConfig(domain=["sensor", "weather"])
                     ),
-                    vol.Optional(CONF_WIND_SENSOR): selector.EntitySelector(
-                        selector.EntitySelectorConfig(domain=["sensor"])
-                    ),
                 }
             ),
         )
@@ -200,7 +193,6 @@ class ShutterControlFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     vol.Optional(CONF_SUN_ELEVATION_MAX, default=DEFAULT_SHADING_ELEVATION_MAX): vol.Coerce(float),
                     vol.Optional(CONF_SHADING_BRIGHTNESS_START, default=DEFAULT_SHADING_BRIGHTNESS_START): vol.Coerce(float),
                     vol.Optional(CONF_SHADING_BRIGHTNESS_END, default=DEFAULT_SHADING_BRIGHTNESS_END): vol.Coerce(float),
-                    vol.Optional(CONF_WIND_LIMIT, default=DEFAULT_WIND_LIMIT): vol.Coerce(float),
                     vol.Optional(CONF_MANUAL_OVERRIDE_MINUTES, default=DEFAULT_MANUAL_OVERRIDE_MINUTES): vol.Coerce(int),
                 }
             ),
@@ -235,6 +227,15 @@ class ShutterOptionsFlow(config_entries.OptionsFlow):
         self.config_entry = config_entry
         self._options = _with_automation_defaults(dict(config_entry.data | config_entry.options))
 
+    def _clean_user_input(self, user_input: dict) -> dict:
+        """Drop empty selector values while keeping valid falsy values."""
+        return {
+            key: value
+            for key, value in user_input.items()
+            if value is not None and value != ""
+        }
+
+
     def _time_default(self, key: str, legacy: tuple[str, ...], fallback: str) -> str:
         if key in self._options:
             return self._options.get(key, fallback)
@@ -245,10 +246,10 @@ class ShutterOptionsFlow(config_entries.OptionsFlow):
 
     async def async_step_init(self, user_input=None) -> FlowResult:
         if user_input is not None:
-            clean_input = {key: value for key, value in user_input.items() if value is not None}
+            clean_input = self._clean_user_input(user_input)
             name = clean_input.pop(CONF_NAME, self.config_entry.title).strip() or DEFAULT_NAME
             mapping: dict[str, list[str]] = {}
-            for cover in self._options.get(CONF_COVERS, []):
+            for cover in covers:
                 mapping[cover] = clean_input.get(
                     self._cover_key(cover), self._existing_windows_for_cover(cover)
                 )
@@ -276,13 +277,6 @@ class ShutterOptionsFlow(config_entries.OptionsFlow):
                 CONF_POSITION_TOLERANCE,
                 default=self._options.get(CONF_POSITION_TOLERANCE, DEFAULT_TOLERANCE),
             ): int,
-            vol.Optional(CONF_WIND_SENSOR, default=self._options.get(CONF_WIND_SENSOR)): selector.EntitySelector(
-                selector.EntitySelectorConfig(domain=["sensor"])
-            ),
-            vol.Optional(
-                CONF_WIND_LIMIT,
-                default=self._options.get(CONF_WIND_LIMIT, DEFAULT_WIND_LIMIT),
-            ): vol.Coerce(float),
             vol.Optional(CONF_RESIDENT_SENSOR, default=self._options.get(CONF_RESIDENT_SENSOR)): selector.EntitySelector(
                 selector.EntitySelectorConfig(domain=["binary_sensor", "switch"])
             ),
