@@ -26,8 +26,6 @@ from .const import (
     CONF_AUTO_UP_ENTITY,
     CONF_AUTO_VENTILATE,
     CONF_AUTO_VENTILATE_ENTITY,
-    CONF_AUTO_WIND,
-    CONF_AUTO_WIND_ENTITY,
     CONF_COLD_PROTECTION_FORECAST_SENSOR,
     CONF_COLD_PROTECTION_THRESHOLD,
     CONF_BRIGHTNESS_CLOSE_BELOW,
@@ -36,6 +34,12 @@ from .const import (
     CONF_CLOSE_POSITION,
     CONF_COVERS,
     CONF_MANUAL_OVERRIDE_MINUTES,
+    CONF_MANUAL_OVERRIDE_BLOCK_CLOSE,
+    CONF_MANUAL_OVERRIDE_BLOCK_OPEN,
+    CONF_MANUAL_OVERRIDE_BLOCK_SHADING,
+    CONF_MANUAL_OVERRIDE_BLOCK_VENTILATE,
+    CONF_MANUAL_OVERRIDE_RESET_MODE,
+    CONF_MANUAL_OVERRIDE_RESET_TIME,
     CONF_OPEN_POSITION,
     CONF_POSITION_TOLERANCE,
     CONF_RESIDENT_SENSOR,
@@ -57,12 +61,12 @@ from .const import (
     CONF_TIME_UP_NON_WORKDAY,
     CONF_TIME_UP_WORKDAY,
     CONF_VENTILATE_POSITION,
-    CONF_WIND_LIMIT,
-    CONF_WIND_SENSOR,
     CONF_WINDOW_SENSORS,
     CONF_WORKDAY_SENSOR,
     DEFAULT_AUTOMATION_FLAGS,
     DEFAULT_MANUAL_OVERRIDE_MINUTES,
+    DEFAULT_MANUAL_OVERRIDE_FLAGS,
+    DEFAULT_MANUAL_OVERRIDE_RESET_TIME,
     DEFAULT_TIME_DOWN_NON_WORKDAY,
     DEFAULT_TIME_DOWN_WORKDAY,
     DEFAULT_TIME_UP_NON_WORKDAY,
@@ -72,9 +76,11 @@ from .const import (
     DEFAULT_VENTILATE_POSITION,
     DEFAULT_SHADING_POSITION,
     DEFAULT_CLOSE_POSITION,
-    DEFAULT_WIND_LIMIT,
     DOMAIN,
     SIGNAL_STATE_UPDATED,
+    MANUAL_OVERRIDE_RESET_NONE,
+    MANUAL_OVERRIDE_RESET_TIME,
+    MANUAL_OVERRIDE_RESET_TIMEOUT,
 )
 
 IDLE_REASON = "idle"
@@ -114,7 +120,12 @@ class ControllerManager:
         self.controllers: dict[str, ShutterController] = {}
 
     async def async_setup(self) -> None:
-        data = {**DEFAULT_AUTOMATION_FLAGS, **self.entry.data, **self.entry.options}
+        data = {
+            **DEFAULT_AUTOMATION_FLAGS,
+            **DEFAULT_MANUAL_OVERRIDE_FLAGS,
+            **self.entry.data,
+            **self.entry.options,
+        }
         for cover in data.get(CONF_COVERS, []):
             controller = ShutterController(self.hass, self.entry, cover, data)
             await controller.async_setup()
@@ -127,7 +138,12 @@ class ControllerManager:
 
     @callback
     def async_update_options(self) -> None:
-        new_data = {**DEFAULT_AUTOMATION_FLAGS, **self.entry.data, **self.entry.options}
+        new_data = {
+            **DEFAULT_AUTOMATION_FLAGS,
+            **DEFAULT_MANUAL_OVERRIDE_FLAGS,
+            **self.entry.data,
+            **self.entry.options,
+        }
         for controller in self.controllers.values():
             controller.update_config(new_data)
 
@@ -158,6 +174,7 @@ class ControllerManager:
             float | None,
             str | None,
             datetime | None,
+            bool,
             datetime | None,
             datetime | None,
             float | None,
@@ -172,6 +189,7 @@ class ControllerManager:
                     IDLE_REASON,
                     None,
                     None,
+                    False,
                     None,
                     None,
                     False,
@@ -190,6 +208,8 @@ class ShutterController:
         self.config = config
         self._unsubs: list[CALLBACK_TYPE] = []
         self._manual_until: datetime | None = None
+        self._manual_active: bool = False
+        self._manual_scope_all: bool = False
         self._target: float | None = None
         self._reason: str | None = None
         self._next_open: datetime | None = None
@@ -206,7 +226,6 @@ class ShutterController:
             CONF_AUTO_VENTILATE: CONF_AUTO_VENTILATE_ENTITY,
             CONF_AUTO_SHADING: CONF_AUTO_SHADING_ENTITY,
             CONF_AUTO_COLD: CONF_AUTO_COLD_ENTITY,
-            CONF_AUTO_WIND: CONF_AUTO_WIND_ENTITY,
         }
 
     async def async_setup(self) -> None:
@@ -216,7 +235,6 @@ class ShutterController:
         sensor_entities = [
             self.config.get(CONF_BRIGHTNESS_SENSOR),
             self.config.get(CONF_WORKDAY_SENSOR),
-            self.config.get(CONF_WIND_SENSOR),
             self.config.get(CONF_TEMPERATURE_SENSOR_INDOOR),
             self.config.get(CONF_TEMPERATURE_SENSOR_OUTDOOR),
             self.config.get(CONF_COLD_PROTECTION_FORECAST_SENSOR),
@@ -243,6 +261,8 @@ class ShutterController:
     def update_config(self, new_config: ConfigType) -> None:
         self.config = new_config
         self._manual_until = None
+        self._manual_active = False
+        self._manual_scope_all = False
         self._refresh_next_events(dt_util.utcnow())
         self._publish_state()
 
@@ -259,32 +279,88 @@ class ShutterController:
                 current is not None
                 and self._target is not None
                 and abs(current - self._target) > tolerance
-                and not self._manual_until
+                and self._manual_detection_enabled()
             ):
-                duration = self.config.get(
-                    CONF_MANUAL_OVERRIDE_MINUTES, DEFAULT_MANUAL_OVERRIDE_MINUTES
-                )
-                self._manual_until = dt_util.utcnow() + timedelta(minutes=duration)
-                self._reason = "manual_override"
-                self._refresh_next_events(dt_util.utcnow())
-                self._publish_state()
+                self._activate_manual_override(reason="manual_override")
         self.hass.async_create_task(self._evaluate("state"))
 
     @callback
     def _handle_interval(self, now: datetime) -> None:
         self.hass.async_create_task(self._evaluate("time"))
 
+    def _manual_detection_enabled(self) -> bool:
+        if self._manual_active:
+            return False
+        return any(
+            bool(self.config.get(flag, DEFAULT_MANUAL_OVERRIDE_FLAGS.get(flag, False)))
+            for flag in (
+                CONF_MANUAL_OVERRIDE_BLOCK_OPEN,
+                CONF_MANUAL_OVERRIDE_BLOCK_CLOSE,
+                CONF_MANUAL_OVERRIDE_BLOCK_VENTILATE,
+                CONF_MANUAL_OVERRIDE_BLOCK_SHADING,
+            )
+        )
+
+    def _activate_manual_override(
+        self, minutes: int | None = None, scope_all: bool = False, reason: str | None = None
+    ) -> None:
+        now = dt_util.utcnow()
+        self._manual_active = True
+        self._manual_scope_all = self._manual_scope_all or scope_all
+        self._manual_until = self._manual_reset_at(now, minutes)
+        if reason:
+            self._reason = reason
+        elif self._manual_scope_all:
+            self._reason = "manual_override"
+        self._refresh_next_events(now)
+        self._publish_state()
+
+    def _manual_reset_at(self, now: datetime, minutes: int | None = None) -> datetime | None:
+        if minutes is not None:
+            return now + timedelta(minutes=minutes)
+        mode = self.config.get(CONF_MANUAL_OVERRIDE_RESET_MODE, MANUAL_OVERRIDE_RESET_TIMEOUT)
+        if mode == MANUAL_OVERRIDE_RESET_NONE:
+            return None
+        if mode == MANUAL_OVERRIDE_RESET_TIME:
+            reset_time = _parse_time(self.config.get(CONF_MANUAL_OVERRIDE_RESET_TIME)) or _parse_time(
+                DEFAULT_MANUAL_OVERRIDE_RESET_TIME
+            )
+            return self._next_time_for_point(reset_time, now)
+        duration = self.config.get(CONF_MANUAL_OVERRIDE_MINUTES, DEFAULT_MANUAL_OVERRIDE_MINUTES)
+        try:
+            minutes_value = int(duration)
+        except (TypeError, ValueError):
+            minutes_value = DEFAULT_MANUAL_OVERRIDE_MINUTES
+        return now + timedelta(minutes=minutes_value)
+
+    def _manual_blocks_action(self, action: str) -> bool:
+        if not self._manual_active:
+            return False
+        if self._manual_scope_all:
+            return True
+        flag_map = {
+            "open": CONF_MANUAL_OVERRIDE_BLOCK_OPEN,
+            "close": CONF_MANUAL_OVERRIDE_BLOCK_CLOSE,
+            "ventilation": CONF_MANUAL_OVERRIDE_BLOCK_VENTILATE,
+            "shading": CONF_MANUAL_OVERRIDE_BLOCK_SHADING,
+        }
+        flag = flag_map.get(action)
+        if not flag:
+            return False
+        return bool(self.config.get(flag, DEFAULT_MANUAL_OVERRIDE_FLAGS.get(flag, False)))
+
     def set_manual_override(self, minutes: int) -> None:
         duration = minutes or self.config.get(
             CONF_MANUAL_OVERRIDE_MINUTES, DEFAULT_MANUAL_OVERRIDE_MINUTES
         )
-        self._manual_until = dt_util.utcnow() + timedelta(minutes=duration)
-        self._reason = "manual_override"
-        self._refresh_next_events(dt_util.utcnow())
-        self._publish_state()
+        self._activate_manual_override(
+            minutes=duration, scope_all=True, reason="manual_override"
+        )
     
     def clear_manual_override(self) -> None:
         self._manual_until = None
+        self._manual_active = False
+        self._manual_scope_all = False
         if self._reason in {"manual_override", "manual_shading"}:
             self._reason = None
         self._refresh_next_events(dt_util.utcnow())
@@ -301,6 +377,7 @@ class ShutterController:
         float | None,
         str | None,
         datetime | None,
+        bool,
         datetime | None,
         datetime | None,
         float | None,
@@ -319,6 +396,7 @@ class ShutterController:
             self._target,
             self._reason or IDLE_REASON,
             self._manual_until,
+            self._manual_active,
             self._next_open,
             self._next_close,
             current_position,
@@ -337,13 +415,15 @@ class ShutterController:
     def _expire_manual_override(self, now: datetime) -> None:
         if self._manual_until and now >= self._manual_until:
             self._manual_until = None
+            self._manual_active = False
+            self._manual_scope_all = False
             if self._reason in {"manual_override", "manual_shading"}:
                 self._reason = None
 
     async def _evaluate(self, trigger: str) -> None:
         now = dt_util.utcnow()
         self._expire_manual_override(now)
-        if self._manual_until and now < self._manual_until:
+        if self._manual_active and self._manual_scope_all:
             self._refresh_next_events(now)
             self._publish_state()
             return
@@ -356,15 +436,6 @@ class ShutterController:
         sun_elevation = sun_state and sun_state.attributes.get("elevation")
         sun_azimuth = sun_state and sun_state.attributes.get("azimuth")
 
-        wind_speed = _float_state(self.hass, self.config.get(CONF_WIND_SENSOR))
-        wind_limit = float(self.config.get(CONF_WIND_LIMIT, DEFAULT_WIND_LIMIT))
-        if self._auto_enabled(CONF_AUTO_WIND) and wind_speed is not None and wind_speed >= wind_limit:
-            await self._set_position(
-                self._position_value(CONF_OPEN_POSITION, DEFAULT_OPEN_POSITION),
-                "wind_protection",
-            )
-            return
-
         if self._is_resident_sleeping():
             await self._set_position(
                 self._position_value(CONF_CLOSE_POSITION, DEFAULT_CLOSE_POSITION),
@@ -373,10 +444,11 @@ class ShutterController:
             return
 
         if self._auto_enabled(CONF_AUTO_VENTILATE) and self._is_window_open():
-            await self._set_position(
-                self._position_value(CONF_VENTILATE_POSITION, DEFAULT_VENTILATE_POSITION),
-                "ventilation",
-            )
+            if not self._manual_blocks_action("ventilation"):
+                await self._set_position(
+                    self._position_value(CONF_VENTILATE_POSITION, DEFAULT_VENTILATE_POSITION),
+                    "ventilation",
+                )
             return
 
         if self._auto_enabled(CONF_AUTO_COLD) and self._cold_protection_needed(sun_elevation):
@@ -386,7 +458,7 @@ class ShutterController:
             )
             return
 
-        if self._auto_enabled(CONF_AUTO_SHADING):
+        if self._auto_enabled(CONF_AUTO_SHADING) and not self._manual_blocks_action("shading"):
             shading_active = self._reason in {"shading", "manual_shading"}
             shading_allowed = self._shading_conditions(
                 sun_azimuth, sun_elevation, brightness
@@ -397,23 +469,25 @@ class ShutterController:
                     and self._sun_allows_close(sun_elevation)
                     and self._brightness_allows_close(brightness)
                 ):
-                    await self._set_position(
-                        self._position_value(
-                            CONF_CLOSE_POSITION, DEFAULT_CLOSE_POSITION
-                        ),
-                        "shading_end_close",
-                    )
-                    return
+                    if not self._manual_blocks_action("close"):
+                        await self._set_position(
+                            self._position_value(
+                                CONF_CLOSE_POSITION, DEFAULT_CLOSE_POSITION
+                            ),
+                            "shading_end_close",
+                        )
+                        return
                 if (
                     self._auto_enabled(CONF_AUTO_UP)
                     and self._sun_allows_open(sun_elevation)
                     and self._brightness_allows_open(brightness)
                 ):
-                    await self._set_position(
-                        self._position_value(CONF_OPEN_POSITION, DEFAULT_OPEN_POSITION),
-                        "shading_end_open",
-                    )
-                    return
+                    if not self._manual_blocks_action("open"):
+                        await self._set_position(
+                            self._position_value(CONF_OPEN_POSITION, DEFAULT_OPEN_POSITION),
+                            "shading_end_open",
+                        )
+                        return
             if shading_allowed:
                 await self._set_position(
                     self._position_value(CONF_SHADING_POSITION, DEFAULT_SHADING_POSITION),
@@ -423,30 +497,34 @@ class ShutterController:
         
         if self._auto_enabled(CONF_AUTO_SUN) and self._sun_allows_close(sun_elevation):
             if self._brightness_allows_close(brightness):
-                await self._set_position(
-                    self._position_value(CONF_CLOSE_POSITION, DEFAULT_CLOSE_POSITION),
-                    "sun_close",
-                )
-                return
+                if not self._manual_blocks_action("close"):
+                    await self._set_position(
+                        self._position_value(CONF_CLOSE_POSITION, DEFAULT_CLOSE_POSITION),
+                        "sun_close",
+                    )
+                    return
 
         if self._auto_enabled(CONF_AUTO_UP) and up_due:
             if self._sun_allows_open(sun_elevation) and self._brightness_allows_open(brightness):
-                await self._set_position(
-                    self._position_value(CONF_OPEN_POSITION, DEFAULT_OPEN_POSITION),
-                    "scheduled_open",
-                )
-                return
+                
+                if not self._manual_blocks_action("open"):
+                    await self._set_position(
+                        self._position_value(CONF_OPEN_POSITION, DEFAULT_OPEN_POSITION),
+                        "scheduled_open",
+                    )
+                    return
             self._next_open = now + timedelta(minutes=1)
             self._publish_state()
             return
 
         if self._auto_enabled(CONF_AUTO_DOWN) and down_due:
             if self._sun_allows_close(sun_elevation) and self._brightness_allows_close(brightness):
-                await self._set_position(
-                    self._position_value(CONF_CLOSE_POSITION, DEFAULT_CLOSE_POSITION),
-                    "scheduled_close",
-                )
-                return
+                if not self._manual_blocks_action("close"):
+                    await self._set_position(
+                        self._position_value(CONF_CLOSE_POSITION, DEFAULT_CLOSE_POSITION),
+                        "scheduled_close",
+                    )
+                    return
             self._next_close = now + timedelta(minutes=1)
             self._publish_state()
             return
@@ -721,11 +799,13 @@ class ShutterController:
             self._target,
             self._reason or IDLE_REASON,
             self._manual_until,
+            self._manual_active,
             self._next_open,
             self._next_close,
             current_position,
             shading_enabled,
             shading_active,
+            ventilation_active,
         )
 
     def _position_matches(self, target: float | None, current: float | None) -> bool:
