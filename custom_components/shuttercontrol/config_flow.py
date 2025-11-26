@@ -24,6 +24,12 @@ from .const import (
     CONF_CLOSE_POSITION,
     CONF_COVERS,
     CONF_MANUAL_OVERRIDE_MINUTES,
+    CONF_MANUAL_OVERRIDE_BLOCK_CLOSE,
+    CONF_MANUAL_OVERRIDE_BLOCK_OPEN,
+    CONF_MANUAL_OVERRIDE_BLOCK_SHADING,
+    CONF_MANUAL_OVERRIDE_BLOCK_VENTILATE,
+    CONF_MANUAL_OVERRIDE_RESET_MODE,
+    CONF_MANUAL_OVERRIDE_RESET_TIME,
     CONF_NAME,
     CONF_OPEN_POSITION,
     CONF_POSITION_TOLERANCE,
@@ -41,16 +47,14 @@ from .const import (
     CONF_TEMPERATURE_SENSOR_INDOOR,
     CONF_TEMPERATURE_SENSOR_OUTDOOR,
     CONF_TEMPERATURE_THRESHOLD,
-    CONF_TIME_DOWN_NON_WORKDAY,
-    CONF_TIME_DOWN_WORKDAY,
-    CONF_TIME_UP_NON_WORKDAY,
-    CONF_TIME_UP_WORKDAY,
     CONF_VENTILATE_POSITION,
     CONF_WINDOW_SENSORS,
     CONF_WORKDAY_SENSOR,
     DEFAULT_BRIGHTNESS_CLOSE,
     DEFAULT_BRIGHTNESS_OPEN,
     DEFAULT_MANUAL_OVERRIDE_MINUTES,
+    DEFAULT_MANUAL_OVERRIDE_FLAGS,
+    DEFAULT_MANUAL_OVERRIDE_RESET_TIME,
     DEFAULT_NAME,
     DEFAULT_OPEN_POSITION,
     DEFAULT_SHADING_AZIMUTH_END,
@@ -67,11 +71,10 @@ from .const import (
     DEFAULT_COLD_PROTECTION_THRESHOLD,
     DEFAULT_TOLERANCE,
     DEFAULT_VENTILATE_POSITION,
-    DEFAULT_TIME_DOWN_NON_WORKDAY,
-    DEFAULT_TIME_DOWN_WORKDAY,
-    DEFAULT_TIME_UP_NON_WORKDAY,
-    DEFAULT_TIME_UP_WORKDAY,
     DEFAULT_AUTOMATION_FLAGS,
+    MANUAL_OVERRIDE_RESET_NONE,
+    MANUAL_OVERRIDE_RESET_TIME,
+    MANUAL_OVERRIDE_RESET_TIMEOUT,
     DOMAIN,
 )
 from .const import DEFAULT_CLOSE_POSITION  # separate import for line length
@@ -80,7 +83,11 @@ from .const import DEFAULT_CLOSE_POSITION  # separate import for line length
 def _with_automation_defaults(config: dict) -> dict:
     """Ensure automation toggles fall back to default values."""
 
-    return {**DEFAULT_AUTOMATION_FLAGS, **config}
+    return {
+        **DEFAULT_AUTOMATION_FLAGS,
+        **DEFAULT_MANUAL_OVERRIDE_FLAGS,
+        **config,
+    }
 
 
 class ShutterControlFlow(config_entries.ConfigFlow, domain=DOMAIN):
@@ -193,7 +200,21 @@ class ShutterControlFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     vol.Optional(CONF_SUN_ELEVATION_MAX, default=DEFAULT_SHADING_ELEVATION_MAX): vol.Coerce(float),
                     vol.Optional(CONF_SHADING_BRIGHTNESS_START, default=DEFAULT_SHADING_BRIGHTNESS_START): vol.Coerce(float),
                     vol.Optional(CONF_SHADING_BRIGHTNESS_END, default=DEFAULT_SHADING_BRIGHTNESS_END): vol.Coerce(float),
-                    vol.Optional(CONF_MANUAL_OVERRIDE_MINUTES, default=DEFAULT_MANUAL_OVERRIDE_MINUTES): vol.Coerce(int),
+                    vol.Optional(CONF_MANUAL_OVERRIDE_RESET_MODE, default=self._data.get(CONF_MANUAL_OVERRIDE_RESET_MODE, MANUAL_OVERRIDE_RESET_TIMEOUT)): selector.SelectSelector(
+                        selector.SelectSelectorConfig(
+                            options=[
+                                {"value": MANUAL_OVERRIDE_RESET_NONE, "label": "No timed reset"},
+                                {"value": MANUAL_OVERRIDE_RESET_TIME, "label": "Reset at specific time"},
+                                {"value": MANUAL_OVERRIDE_RESET_TIMEOUT, "label": "Reset after timeout (minutes)"},
+                            ]
+                        )
+                    ),
+                    vol.Optional(CONF_MANUAL_OVERRIDE_RESET_TIME, default=self._data.get(CONF_MANUAL_OVERRIDE_RESET_TIME, DEFAULT_MANUAL_OVERRIDE_RESET_TIME)): selector.TimeSelector(),
+                    vol.Optional(CONF_MANUAL_OVERRIDE_MINUTES, default=self._data.get(CONF_MANUAL_OVERRIDE_MINUTES, DEFAULT_MANUAL_OVERRIDE_MINUTES)): vol.Coerce(int),
+                    vol.Optional(CONF_MANUAL_OVERRIDE_BLOCK_OPEN, default=self._data.get(CONF_MANUAL_OVERRIDE_BLOCK_OPEN, DEFAULT_MANUAL_OVERRIDE_FLAGS[CONF_MANUAL_OVERRIDE_BLOCK_OPEN])): bool,
+                    vol.Optional(CONF_MANUAL_OVERRIDE_BLOCK_CLOSE, default=self._data.get(CONF_MANUAL_OVERRIDE_BLOCK_CLOSE, DEFAULT_MANUAL_OVERRIDE_FLAGS[CONF_MANUAL_OVERRIDE_BLOCK_CLOSE])): bool,
+                    vol.Optional(CONF_MANUAL_OVERRIDE_BLOCK_VENTILATE, default=self._data.get(CONF_MANUAL_OVERRIDE_BLOCK_VENTILATE, DEFAULT_MANUAL_OVERRIDE_FLAGS[CONF_MANUAL_OVERRIDE_BLOCK_VENTILATE])): bool,
+                    vol.Optional(CONF_MANUAL_OVERRIDE_BLOCK_SHADING, default=self._data.get(CONF_MANUAL_OVERRIDE_BLOCK_SHADING, DEFAULT_MANUAL_OVERRIDE_FLAGS[CONF_MANUAL_OVERRIDE_BLOCK_SHADING])): bool,
                 }
             ),
         )
@@ -236,14 +257,6 @@ class ShutterOptionsFlow(config_entries.OptionsFlow):
             for key, value in user_input.items()
             if value is not None and value != ""
         }
-
-    def _time_default(self, key: str, legacy: tuple[str, ...], fallback: str) -> str:
-        if key in self._options:
-            return self._options.get(key, fallback)
-        for legacy_key in legacy:
-            if legacy_key in self._options:
-                return self._options.get(legacy_key, fallback)
-        return fallback
 
     def _optional_default(self, key: str):
         """Return a safe default for optional selectors."""
@@ -311,6 +324,52 @@ class ShutterOptionsFlow(config_entries.OptionsFlow):
                 CONF_MANUAL_OVERRIDE_MINUTES,
                 default=self._options.get(CONF_MANUAL_OVERRIDE_MINUTES, DEFAULT_MANUAL_OVERRIDE_MINUTES),
             ): vol.Coerce(int),
+            vol.Optional(
+                CONF_MANUAL_OVERRIDE_RESET_MODE,
+                default=self._options.get(CONF_MANUAL_OVERRIDE_RESET_MODE, MANUAL_OVERRIDE_RESET_TIMEOUT),
+            ): selector.SelectSelector(
+                selector.SelectSelectorConfig(
+                    options=[
+                        {"value": MANUAL_OVERRIDE_RESET_NONE, "label": "No timed reset"},
+                        {"value": MANUAL_OVERRIDE_RESET_TIME, "label": "Reset at specific time"},
+                        {"value": MANUAL_OVERRIDE_RESET_TIMEOUT, "label": "Reset after timeout (minutes)"},
+                    ]
+                )
+            ),
+            vol.Optional(
+                CONF_MANUAL_OVERRIDE_RESET_TIME,
+                default=self._options.get(
+                    CONF_MANUAL_OVERRIDE_RESET_TIME, DEFAULT_MANUAL_OVERRIDE_RESET_TIME
+                ),
+            ): selector.TimeSelector(),
+            vol.Optional(
+                CONF_MANUAL_OVERRIDE_BLOCK_OPEN,
+                default=self._options.get(
+                    CONF_MANUAL_OVERRIDE_BLOCK_OPEN,
+                    DEFAULT_MANUAL_OVERRIDE_FLAGS[CONF_MANUAL_OVERRIDE_BLOCK_OPEN],
+                ),
+            ): bool,
+            vol.Optional(
+                CONF_MANUAL_OVERRIDE_BLOCK_CLOSE,
+                default=self._options.get(
+                    CONF_MANUAL_OVERRIDE_BLOCK_CLOSE,
+                    DEFAULT_MANUAL_OVERRIDE_FLAGS[CONF_MANUAL_OVERRIDE_BLOCK_CLOSE],
+                ),
+            ): bool,
+            vol.Optional(
+                CONF_MANUAL_OVERRIDE_BLOCK_VENTILATE,
+                default=self._options.get(
+                    CONF_MANUAL_OVERRIDE_BLOCK_VENTILATE,
+                    DEFAULT_MANUAL_OVERRIDE_FLAGS[CONF_MANUAL_OVERRIDE_BLOCK_VENTILATE],
+                ),
+            ): bool,
+            vol.Optional(
+                CONF_MANUAL_OVERRIDE_BLOCK_SHADING,
+                default=self._options.get(
+                    CONF_MANUAL_OVERRIDE_BLOCK_SHADING,
+                    DEFAULT_MANUAL_OVERRIDE_FLAGS[CONF_MANUAL_OVERRIDE_BLOCK_SHADING],
+                ),
+            ): bool,
         }
 
         if auto_brightness:
