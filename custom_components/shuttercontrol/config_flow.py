@@ -153,7 +153,7 @@ class ShutterControlFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         selector.EntitySelectorConfig(domain=["binary_sensor", "switch"])
                     ),
                     vol.Optional(CONF_BRIGHTNESS_SENSOR): selector.EntitySelector(
-                        selector.EntitySelectorConfig(domain=["sensor"])
+                        selector.EntitySelectorConfig(domain=["sensor"],device_class=["illuminance"])
                     ),
                     vol.Optional(CONF_TEMPERATURE_SENSOR_INDOOR): selector.EntitySelector(
                         selector.EntitySelectorConfig(domain=["sensor"])
@@ -245,10 +245,15 @@ class ShutterOptionsFlow(config_entries.OptionsFlow):
 
     async def async_step_init(self, user_input=None) -> FlowResult:
         if user_input is not None:
-            name = user_input.pop(CONF_NAME, self.config_entry.title).strip() or DEFAULT_NAME
+            clean_input = {key: value for key, value in user_input.items() if value is not None}
+            name = clean_input.pop(CONF_NAME, self.config_entry.title).strip() or DEFAULT_NAME
             mapping: dict[str, list[str]] = {}
             for cover in self._options.get(CONF_COVERS, []):
-                mapping[cover] = user_input.get(self._cover_key(cover), self._existing_windows_for_cover(cover))
+                mapping[cover] = clean_input.get(
+                    self._cover_key(cover), self._existing_windows_for_cover(cover)
+                )
+            clean_input[CONF_WINDOW_SENSORS] = mapping
+            self._options.update({CONF_NAME: name} | clean_input)
             user_input[CONF_WINDOW_SENSORS] = mapping
             self._options.update({CONF_NAME: name} | user_input)
             await self.hass.config_entries.async_update_entry(self.config_entry, title=name)
@@ -310,7 +315,7 @@ class ShutterOptionsFlow(config_entries.OptionsFlow):
             schema.update(
                 {
                     vol.Optional(CONF_BRIGHTNESS_SENSOR, default=self._options.get(CONF_BRIGHTNESS_SENSOR)): selector.EntitySelector(
-                        selector.EntitySelectorConfig(domain=["sensor"])
+                        selector.EntitySelectorConfig(domain=["sensor"],device_class=["illuminance"])
                     ),
                     vol.Optional(
                         CONF_BRIGHTNESS_OPEN_ABOVE,
