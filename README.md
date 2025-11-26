@@ -1,6 +1,6 @@
 # Shutter Control for Home Assistant
 
-This custom integration packages the inputs and algorithms from the **Cover Control Automation (CCA)** blueprint as a dedicated Home Assistant integration. Configure your shutters with a guided setup flow, then let the integration handle time-based opening/closing, brightness and sun elevation guards, ventilation lockout, wind protection, and shading thresholds inspired by the blueprint.
+This custom integration packages the inputs and algorithms from the **Cover Control Automation (CCA)** blueprint as a dedicated Home Assistant integration. Configure your shutters with a guided setup flow, then let the integration handle time-based opening/closing, brightness and sun elevation guards, ventilation lockout and shading thresholds inspired by the blueprint.
 
 ## Features
 - Multi-step config/options flow that mirrors the blueprint inputs (cover selection, timers, brightness & sun thresholds, shading and safety sensors) plus per-cover window/door contact assignment.
@@ -11,7 +11,7 @@ This custom integration packages the inputs and algorithms from the **Cover Cont
 ## Installation
 1. Copy the `custom_components/shuttercontrol` folder into your Home Assistant `config/custom_components` directory.
 2. Restart Home Assistant.
-3. Go to **Settings → Devices & Services → Add Integration**, search for **Shutter Control**, and follow the step-by-step wizard to select covers, define time windows, and supply optional sensors for brightness, sun, ventilation, wind, and temperature.
+3. Go to **Settings → Devices & Services → Add Integration**, search for **Shutter Control**, and follow the step-by-step wizard to select covers, define time windows, and supply optional sensors for brightness, sun, ventilation and temperature.
 4. Adjust any values later via the integration's **Configure** options dialog. The same fields stay editable after setup.
 
 ## Services
