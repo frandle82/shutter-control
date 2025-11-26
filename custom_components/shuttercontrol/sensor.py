@@ -27,7 +27,6 @@ REASON_LABELS = {
     "scheduled_close": "Schließung(Zeit)",
     "scheduled_open": "Öffnung(Zeit)",
     "ventilation": "Lüftung",
-    "wind_protection": "Windschutz",
     "resident_asleep": "Bewohner schläft",
     "cold_protection": "Kälteschutz",
     IDLE_REASON: "Keine Aktion",
@@ -64,6 +63,7 @@ class ShutterBaseSensor(SensorEntity):
         self.cover = cover
         self._reason: str | None = None
         self._manual_until: datetime | None = None
+        self._manual_active: bool = False
         self._next_open: datetime | None = None
         self._next_close: datetime | None = None
         self._shading_enabled: bool = False
@@ -98,10 +98,14 @@ class ShutterBaseSensor(SensorEntity):
             "shading_active": self._shading_active,
             "ventilation": self._ventilation_active,
             "manual_override": bool(
-                isinstance(self._manual_until, datetime)
-                and self._manual_until
-                and dt_util.utcnow() < self._manual_until
+                self._manual_active
+                or (
+                    isinstance(self._manual_until, datetime)
+                    and self._manual_until
+                    and dt_util.utcnow() < self._manual_until
+                )
             ),
+            "manual_override_active": self._manual_active,
         }
 
     @property
@@ -128,6 +132,7 @@ class ShutterBaseSensor(SensorEntity):
                 self._target,
                 self._reason,
                 self._manual_until,
+                self._manual_active,
                 self._next_open,
                 self._next_close,
                 self._current_position,
@@ -144,6 +149,7 @@ class ShutterBaseSensor(SensorEntity):
             self._shading_enabled = False
             self._shading_active = False
             self._ventilation_active = False
+            self._manual_active = False
 
         self.async_write_ha_state()
 
@@ -170,6 +176,7 @@ class ShutterBaseSensor(SensorEntity):
             target,
             reason,
             manual_until,
+            manual_active,
             next_open,
             next_close,
             current_position,
@@ -177,12 +184,13 @@ class ShutterBaseSensor(SensorEntity):
             shading_active,
             ventilation,
             *_,
-        ) = (*payload, None, None, None, None, None, None, None, False, False, False)
+        ) = (*payload, None, None, None, None, False, None, None, None, None, False, False, False)
         if entry_id != self.entry.entry_id or cover != self.cover:
             return
         self._target = target  # type: ignore[assignment]
         self._reason = (reason or IDLE_REASON)  # type: ignore[arg-type]
         self._manual_until = self._normalize_dt(manual_until)  # type: ignore[arg-type]
+        self._manual_active = bool(manual_active)
         self._next_open = self._normalize_dt(next_open)  # type: ignore[arg-type]
         self._next_close = self._normalize_dt(next_close)  # type: ignore[arg-type]
         self._current_position = current_position  # type: ignore[assignment]
