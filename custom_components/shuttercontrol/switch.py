@@ -15,7 +15,9 @@ from .const import (
     CONF_AUTO_SUN,
     CONF_AUTO_UP,
     CONF_AUTO_VENTILATE,
+    CONF_BRIGHTNESS_SENSOR,
     CONF_NAME,
+    CONF_WIND_SENSOR,
     DEFAULT_AUTOMATION_FLAGS,
     DEFAULT_NAME,
     DOMAIN,
@@ -50,9 +52,18 @@ async def async_setup_entry(
 ) -> None:
     """Register automation toggle switches."""
 
+    def _has_sensor(key: str) -> bool:
+        options_and_data = {**entry.data, **entry.options}
+        if key == CONF_AUTO_WIND:
+            return bool(options_and_data.get(CONF_WIND_SENSOR))
+        if key == CONF_AUTO_BRIGHTNESS:
+            return bool(options_and_data.get(CONF_BRIGHTNESS_SENSOR))
+        return True
+
     entities: list[SwitchEntity] = [
         AutomationToggleSwitch(entry, key, translation_key)
         for key, translation_key in AUTOMATION_TOGGLES
+        if _has_sensor(key)
     ]
 
     async_add_entities(entities)
