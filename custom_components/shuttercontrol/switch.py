@@ -15,11 +15,11 @@ from .const import (
     CONF_AUTO_SUN,
     CONF_AUTO_UP,
     CONF_AUTO_VENTILATE,
+    CONF_BRIGHTNESS_SENSOR,
     CONF_NAME,
     DEFAULT_AUTOMATION_FLAGS,
     DEFAULT_NAME,
     DOMAIN,
-    CONF_AUTO_WIND,
 )
 
 
@@ -31,7 +31,6 @@ AUTOMATION_TOGGLES: tuple[tuple[str, str], ...] = (
     (CONF_AUTO_VENTILATE, "auto_ventilate"),
     (CONF_AUTO_SHADING, "auto_shading"),
     (CONF_AUTO_COLD, "auto_cold"),
-    (CONF_AUTO_WIND, "auto_wind"),
 )
 
 TOGGLE_ICONS: dict[str, str] = {
@@ -42,7 +41,6 @@ TOGGLE_ICONS: dict[str, str] = {
     CONF_AUTO_VENTILATE: "mdi:fan-auto",
     CONF_AUTO_SHADING: "mdi:theme-light-dark",
     CONF_AUTO_COLD: "mdi:snowflake-variant",
-    CONF_AUTO_WIND: "mdi:weather-windy",
 }
 
 async def async_setup_entry(
@@ -50,9 +48,16 @@ async def async_setup_entry(
 ) -> None:
     """Register automation toggle switches."""
 
+    def _has_sensor(key: str) -> bool:
+        options_and_data = {**entry.data, **entry.options}
+        if key == CONF_AUTO_BRIGHTNESS:
+            return bool(options_and_data.get(CONF_BRIGHTNESS_SENSOR))
+        return True
+
     entities: list[SwitchEntity] = [
         AutomationToggleSwitch(entry, key, translation_key)
         for key, translation_key in AUTOMATION_TOGGLES
+        if _has_sensor(key)
     ]
 
     async_add_entities(entities)
