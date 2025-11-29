@@ -31,10 +31,10 @@ async def async_setup_entry(
     """Register time entities for scheduling."""
 
     entities: list[TimeEntity] = [
-        ShutterTimeEntity(entry, CONF_TIME_UP_WORKDAY, "time_up_workday"),
-        ShutterTimeEntity(entry, CONF_TIME_DOWN_WORKDAY, "time_down_workday"),
-        ShutterTimeEntity(entry, CONF_TIME_UP_NON_WORKDAY, "time_up_non_workday"),
-        ShutterTimeEntity(entry, CONF_TIME_DOWN_NON_WORKDAY, "time_down_non_workday"),
+        ShutterTimeEntity(entry, CONF_TIME_UP_WORKDAY, "time_up_workday","mdi:sort-clock-descending-outline"),
+        ShutterTimeEntity(entry, CONF_TIME_DOWN_WORKDAY, "time_down_workday","mdi:sort-clock-ascending-outline"),
+        ShutterTimeEntity(entry, CONF_TIME_UP_NON_WORKDAY, "time_up_non_workday","mdi:sort-clock-descending-outline"),
+        ShutterTimeEntity(entry, CONF_TIME_DOWN_NON_WORKDAY, "time_down_non_workday","mdi:sort-clock-ascending-outline"),
     ]
 
     async_add_entities(entities)
@@ -49,20 +49,20 @@ class ShutterTimeEntity(TimeEntity):
     _attr_should_poll = False
     _attr_has_entity_name = True
 
-    def __init__(self, entry: ConfigEntry, key: str, translation_key: str) -> None:
+    def __init__(self, entry: ConfigEntry, key: str, translation_key: str, icon: str) -> None:
         self.entry = entry
         self._key = key
         self._attr_unique_id = f"{entry.entry_id}-{key}"
         self._attr_translation_key = translation_key
         self._attr_translation_placeholders = {}
-        self._attr_name = f"Shutter {translation_key}"  # replaced via translations
+        self._attr_friendly_name = f"{translation_key}"  # replaced via translations
+        self._attr_icon = icon
 
     @property
     def device_info(self) -> DeviceInfo:
         return DeviceInfo(
             identifiers={(DOMAIN, self.entry.entry_id)},
             name=_instance_name(self.entry),
-            manufacturer="CCA-derived",
         )
 
     @property

@@ -17,19 +17,18 @@ from .const import CONF_AUTO_SHADING, CONF_NAME, DEFAULT_NAME, DOMAIN, SIGNAL_ST
 from .controller import ControllerManager, IDLE_REASON
 
 REASON_LABELS = {
-    "manual_override": "Manuelle Steuerung",
-    "manual_shading": "Beschattung aktiv",
-    "shading": "Beschattung aktiv",
-    "shading_end_close": "Beschattung deaktiv",
-    "shading_end_open": "Beschattung deaktiv",
-    "sun_close": "Schließung(Sonnenuntergang)",
-    "sun_open": "Öffnung(Sonnenaufgang)",
-    "scheduled_close": "Schließung(Zeit)",
-    "scheduled_open": "Öffnung(Zeit)",
-    "ventilation": "Lüftung",
-    "resident_asleep": "Bewohner schläft",
-    "cold_protection": "Kälteschutz",
-    IDLE_REASON: "Keine Aktion",
+    "manual_override": "override",
+    "manual_shading": "shading man",
+    "shading": "shading on",
+    "shading_end_close": "shading start",
+    "shading_end_open": "shading end",
+    "sun_close": "close (sun)",
+    "sun_open": "open (sun)",
+    "scheduled_close": "close (time)",
+    "scheduled_open": "open (time)",
+    "ventilation": "ventilation",
+    "resident_asleep": "resident",
+    IDLE_REASON: "idle",
 }
 
 def _instance_name(entry: ConfigEntry) -> str:
@@ -113,7 +112,6 @@ class ShutterBaseSensor(SensorEntity):
         return DeviceInfo(
             identifiers={(DOMAIN, self.entry.entry_id)},
             name=_instance_name(self.entry),
-            manufacturer="CCA-derived",
         )
 
     async def async_added_to_hass(self) -> None:

@@ -32,10 +32,10 @@ async def async_setup_entry(
     """Register configurable number entities."""
 
     entities: list[NumberEntity] = [
-        ShutterPositionNumber(entry, CONF_OPEN_POSITION, "open_position"),
-        ShutterPositionNumber(entry, CONF_CLOSE_POSITION, "close_position"),
-        ShutterPositionNumber(entry, CONF_VENTILATE_POSITION, "ventilate_position"),
-        ShutterPositionNumber(entry, CONF_SHADING_POSITION, "shading_position"),
+        ShutterPositionNumber(entry, CONF_OPEN_POSITION, "open_position","mdi:roller-shade"),
+        ShutterPositionNumber(entry, CONF_CLOSE_POSITION, "close_position","mdi:roller-shade-closed"),
+        ShutterPositionNumber(entry, CONF_VENTILATE_POSITION, "ventilate_position","mdi:roller-shade"),
+        ShutterPositionNumber(entry, CONF_SHADING_POSITION, "shading_position","mdi:roller-shade-closed"),
     ]
 
     async_add_entities(entities)
@@ -55,35 +55,35 @@ class ShutterPositionNumber(NumberEntity):
     _attr_native_step = 1
     _attr_mode = NumberMode.BOX
     _attr_has_entity_name = True
-
-    def __init__(self, entry: ConfigEntry, key: str, translation_key: str) -> None:
+    
+    def __init__(self, entry: ConfigEntry, key: str, translation_key: str, icon: str) -> None:
         self.entry = entry
         self._key = key
         self._attr_unique_id = f"{entry.entry_id}-{key}"
         self._attr_translation_key = translation_key
         self._attr_translation_placeholders = {}
-        self._attr_name = f"Shutter {translation_key}"  # replaced via translations
+        self._attr_friendly_name = f"{translation_key}"  # replaced via translations
+        self._attr_icon = icon
 
     @property
     def device_info(self) -> DeviceInfo:
         return DeviceInfo(
             identifiers={(DOMAIN, self.entry.entry_id)},
             name=_instance_name(self.entry),
-            manufacturer="CCA-derived",
         )
 
     @property
-    def native_value(self) -> float | None:
+    def native_value(self) -> int | None:
         value = self.entry.options.get(self._key, self.entry.data.get(self._key))
         if value is None:
             return None
         try:
-            return float(value)
+            return int(value)
         except (TypeError, ValueError):
             return None
 
-    async def async_set_native_value(self, value: float) -> None:
-        options = {**self.entry.options, self._key: float(value)}
+    async def async_set_native_value(self, value: int) -> None:
+        options = {**self.entry.options, self._key: int(value)}
         update_result = self.hass.config_entries.async_update_entry(
             self.entry, options=options
         )

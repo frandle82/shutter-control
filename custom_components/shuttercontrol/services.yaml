@@ -14,6 +14,26 @@ move_covers:
           options:
             - open
             - close
-reload:
-  name: Reload integration
-  description: Reload all Shutter Control configuration entries.
+recalibrate_cover:
+  name: Recalibrate cover
+  description: Temporarily override a cover, use the standard open command to fully open it, then return it to its previous position and clear the override. Useful for recalibrating.
+  target:
+    entity:
+      domain: cover
+  fields:
+    covers:
+      name: Cover
+      description: The cover entity to recalibrate.
+      required: false
+      selector:
+        entity:
+          domain: cover
+    full_open_position:
+      name: Fully open position
+      description: Override for the fully open position; defaults to 100% if unspecified.
+      required: false
+      selector:
+        number:
+          min: 0
+          max: 100
+          unit_of_measurement: '%'
