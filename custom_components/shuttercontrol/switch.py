@@ -76,7 +76,7 @@ class AutomationToggleSwitch(SwitchEntity):
         self._attr_unique_id = f"{entry.entry_id}-{key}"
         self._attr_translation_key = translation_key
         self._attr_icon = TOGGLE_ICONS.get(key)
-        self._attr_name = translation_key
+        self._attr_friendly_name = translation_key
 
     async def async_added_to_hass(self) -> None:
         """Handle entity addition and keep state in sync with options."""
