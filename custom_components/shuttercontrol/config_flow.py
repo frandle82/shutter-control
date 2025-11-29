@@ -19,13 +19,14 @@ from .const import (
     CONF_AUTO_SUN,
     CONF_AUTO_UP,
     CONF_AUTO_VENTILATE,
-    CONF_POSITION_TOLERANCE,
     CONF_COLD_PROTECTION_FORECAST_SENSOR,
     CONF_COLD_PROTECTION_THRESHOLD,
     CONF_BRIGHTNESS_CLOSE_BELOW,
     CONF_BRIGHTNESS_OPEN_ABOVE,
     CONF_BRIGHTNESS_SENSOR,
+    CONF_CLOSE_POSITION,
     CONF_COVERS,
+    CONF_EXPOSE_SWITCH_SETTINGS,
     CONF_MANUAL_OVERRIDE_MINUTES,
     CONF_MANUAL_OVERRIDE_BLOCK_CLOSE,
     CONF_MANUAL_OVERRIDE_BLOCK_OPEN,
@@ -34,12 +35,15 @@ from .const import (
     CONF_MANUAL_OVERRIDE_RESET_MODE,
     CONF_MANUAL_OVERRIDE_RESET_TIME,
     CONF_NAME,
+    CONF_OPEN_POSITION,
+    CONF_POSITION_TOLERANCE,
     CONF_RESIDENT_SENSOR,
     CONF_SHADING_FORECAST_SENSOR,
     CONF_SHADING_FORECAST_TYPE,
     CONF_SHADING_WEATHER_CONDITIONS,
     CONF_SHADING_BRIGHTNESS_END,
     CONF_SHADING_BRIGHTNESS_START,
+    CONF_SHADING_POSITION,
     CONF_SUN_AZIMUTH_END,
     CONF_SUN_AZIMUTH_START,
     CONF_SUN_ELEVATION_CLOSE,
@@ -50,15 +54,26 @@ from .const import (
     CONF_TEMPERATURE_SENSOR_INDOOR,
     CONF_TEMPERATURE_SENSOR_OUTDOOR,
     CONF_TEMPERATURE_THRESHOLD,
+    CONF_TIME_DOWN_EARLY_NON_WORKDAY,
+    CONF_TIME_DOWN_EARLY_WORKDAY,
+    CONF_TIME_DOWN_LATE_NON_WORKDAY,
+    CONF_TIME_DOWN_LATE_WORKDAY,
+    CONF_TIME_UP_EARLY_NON_WORKDAY,
+    CONF_TIME_UP_EARLY_WORKDAY,
+    CONF_TIME_UP_LATE_NON_WORKDAY,
+    CONF_TIME_UP_LATE_WORKDAY,
+    CONF_VENTILATE_POSITION,
     CONF_WINDOW_SENSORS,
     CONF_WORKDAY_SENSOR,
+    DEFAULT_AUTOMATION_FLAGS,
     DEFAULT_BRIGHTNESS_CLOSE,
     DEFAULT_BRIGHTNESS_OPEN,
-    DEFAULT_TOLERANCE,
+    DEFAULT_COLD_PROTECTION_THRESHOLD,
     DEFAULT_MANUAL_OVERRIDE_MINUTES,
     DEFAULT_MANUAL_OVERRIDE_FLAGS,
     DEFAULT_MANUAL_OVERRIDE_RESET_TIME,
     DEFAULT_NAME,
+    DEFAULT_POSITION_SETTINGS,
     DEFAULT_SHADING_AZIMUTH_END,
     DEFAULT_SHADING_AZIMUTH_START,
     DEFAULT_SHADING_BRIGHTNESS_END,
@@ -66,23 +81,28 @@ from .const import (
     DEFAULT_SHADING_FORECAST_TYPE,
     DEFAULT_SHADING_ELEVATION_MAX,
     DEFAULT_SHADING_ELEVATION_MIN,
+    DEFAULT_SHADING_FORECAST_TYPE,
     DEFAULT_SUN_ELEVATION_CLOSE,
     DEFAULT_SUN_ELEVATION_OPEN,
+    DEFAULT_TIME_SETTINGS,
     DEFAULT_TEMPERATURE_FORECAST_THRESHOLD,
     DEFAULT_TEMPERATURE_THRESHOLD,
+    DEFAULT_TOLERANCE,
     DEFAULT_COLD_PROTECTION_THRESHOLD,
-    DEFAULT_AUTOMATION_FLAGS,
+    DOMAIN,
     MANUAL_OVERRIDE_RESET_NONE,
     MANUAL_OVERRIDE_RESET_TIME,
     MANUAL_OVERRIDE_RESET_TIMEOUT,
-    DOMAIN,
+    
 )
 
 
-def _with_automation_defaults(config: dict) -> dict:
-    """Ensure automation toggles fall back to default values."""
+def _with_config_defaults(config: dict) -> dict:
+    """Ensure automation, time, and position defaults are present."""
 
     return {
+        **DEFAULT_POSITION_SETTINGS,
+        **DEFAULT_TIME_SETTINGS,
         **DEFAULT_AUTOMATION_FLAGS,
         **DEFAULT_MANUAL_OVERRIDE_FLAGS,
         **config,
@@ -190,6 +210,87 @@ class ShutterControlFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     vol.Optional(CONF_COLD_PROTECTION_FORECAST_SENSOR): selector.EntitySelector(
                         selector.EntitySelectorConfig(domain=["sensor", "weather"])
                     ),
+                    vol.Optional(
+                        CONF_TIME_UP_EARLY_WORKDAY,
+                        default=_time_default(
+                            self._data.get(CONF_TIME_UP_EARLY_WORKDAY),
+                            DEFAULT_TIME_SETTINGS[CONF_TIME_UP_EARLY_WORKDAY],
+                        ),
+                    ): selector.TimeSelector(),
+                    vol.Optional(
+                        CONF_TIME_UP_LATE_WORKDAY,
+                        default=_time_default(
+                            self._data.get(CONF_TIME_UP_LATE_WORKDAY),
+                            DEFAULT_TIME_SETTINGS[CONF_TIME_UP_LATE_WORKDAY],
+                        ),
+                    ): selector.TimeSelector(),
+                    vol.Optional(
+                        CONF_TIME_DOWN_EARLY_WORKDAY,
+                        default=_time_default(
+                            self._data.get(CONF_TIME_DOWN_EARLY_WORKDAY),
+                            DEFAULT_TIME_SETTINGS[CONF_TIME_DOWN_EARLY_WORKDAY],
+                        ),
+                    ): selector.TimeSelector(),
+                    vol.Optional(
+                        CONF_TIME_DOWN_LATE_WORKDAY,
+                        default=_time_default(
+                            self._data.get(CONF_TIME_DOWN_LATE_WORKDAY),
+                            DEFAULT_TIME_SETTINGS[CONF_TIME_DOWN_LATE_WORKDAY],
+                        ),
+                    ): selector.TimeSelector(),
+                    vol.Optional(
+                        CONF_TIME_UP_EARLY_NON_WORKDAY,
+                        default=_time_default(
+                            self._data.get(CONF_TIME_UP_EARLY_NON_WORKDAY),
+                            DEFAULT_TIME_SETTINGS[CONF_TIME_UP_EARLY_NON_WORKDAY],
+                        ),
+                    ): selector.TimeSelector(),
+                    vol.Optional(
+                        CONF_TIME_UP_LATE_NON_WORKDAY,
+                        default=_time_default(
+                            self._data.get(CONF_TIME_UP_LATE_NON_WORKDAY),
+                            DEFAULT_TIME_SETTINGS[CONF_TIME_UP_LATE_NON_WORKDAY],
+                        ),
+                    ): selector.TimeSelector(),
+                    vol.Optional(
+                        CONF_TIME_DOWN_EARLY_NON_WORKDAY,
+                        default=_time_default(
+                            self._data.get(CONF_TIME_DOWN_EARLY_NON_WORKDAY),
+                            DEFAULT_TIME_SETTINGS[CONF_TIME_DOWN_EARLY_NON_WORKDAY],
+                        ),
+                    ): selector.TimeSelector(),
+                    vol.Optional(
+                        CONF_TIME_DOWN_LATE_NON_WORKDAY,
+                        default=_time_default(
+                            self._data.get(CONF_TIME_DOWN_LATE_NON_WORKDAY),
+                            DEFAULT_TIME_SETTINGS[CONF_TIME_DOWN_LATE_NON_WORKDAY],
+                        ),
+                    ): selector.TimeSelector(),
+                    vol.Optional(
+                        CONF_OPEN_POSITION,
+                        default=self._data.get(
+                            CONF_OPEN_POSITION, DEFAULT_POSITION_SETTINGS[CONF_OPEN_POSITION]
+                        ),
+                    ): vol.Coerce(float),
+                    vol.Optional(
+                        CONF_CLOSE_POSITION,
+                        default=self._data.get(
+                            CONF_CLOSE_POSITION, DEFAULT_POSITION_SETTINGS[CONF_CLOSE_POSITION]
+                        ),
+                    ): vol.Coerce(float),
+                    vol.Optional(
+                        CONF_VENTILATE_POSITION,
+                        default=self._data.get(
+                            CONF_VENTILATE_POSITION,
+                            DEFAULT_POSITION_SETTINGS[CONF_VENTILATE_POSITION],
+                        ),
+                    ): vol.Coerce(float),
+                    vol.Optional(
+                        CONF_SHADING_POSITION,
+                        default=self._data.get(
+                            CONF_SHADING_POSITION, DEFAULT_POSITION_SETTINGS[CONF_SHADING_POSITION]
+                        ),
+                    ): vol.Coerce(float),
                 }
             ),
         )
@@ -286,7 +387,7 @@ class ShutterControlFlow(config_entries.ConfigFlow, domain=DOMAIN):
         if user_input:
             self._data.update(user_input)
         name = self._data.get(CONF_NAME, DEFAULT_NAME).strip() or DEFAULT_NAME
-        data = _with_automation_defaults(self._data)
+        data = _with_config_defaults(self._data)
         return self.async_create_entry(title=name, data=data)
 
     def _cover_key(self, cover: str) -> str:
@@ -348,7 +449,7 @@ class ShutterOptionsFlow(config_entries.OptionsFlow):
             merged.update(dict(config_entry.data or {}))
             merged.update(dict(config_entry.options or {}))
 
-        merged = _with_automation_defaults(merged)
+        merged = _with_config_defaults(merged)
         if overrides:
             merged.update(overrides)
         sanitized = self._sanitize_options(merged)
@@ -392,7 +493,7 @@ class ShutterOptionsFlow(config_entries.OptionsFlow):
                     **overrides,
                 }
                 self._options = self._sanitize_options(
-                    _with_automation_defaults(merged)
+                    _with_config_defaults(merged)
                 )
             self.hass.config_entries.async_update_entry(self._config_entry, title=name)
             return self.async_create_entry(title="", data=self._options)
@@ -409,9 +510,110 @@ class ShutterOptionsFlow(config_entries.OptionsFlow):
                 selector.EntitySelectorConfig(domain=["cover"], multiple=True)
             ),
             vol.Optional(
+                CONF_TIME_UP_EARLY_WORKDAY,
+                default=_time_default(
+                    self._options.get(
+                        CONF_TIME_UP_EARLY_WORKDAY,
+                        DEFAULT_TIME_SETTINGS[CONF_TIME_UP_EARLY_WORKDAY],
+                    )
+                ),
+            ): selector.TimeSelector(),
+            vol.Optional(
+                CONF_TIME_UP_LATE_WORKDAY,
+                default=_time_default(
+                    self._options.get(
+                        CONF_TIME_UP_LATE_WORKDAY,
+                        DEFAULT_TIME_SETTINGS[CONF_TIME_UP_LATE_WORKDAY],
+                    )
+                ),
+            ): selector.TimeSelector(),
+            vol.Optional(
+                CONF_TIME_DOWN_EARLY_WORKDAY,
+                default=_time_default(
+                    self._options.get(
+                        CONF_TIME_DOWN_EARLY_WORKDAY,
+                        DEFAULT_TIME_SETTINGS[CONF_TIME_DOWN_EARLY_WORKDAY],
+                    )
+                ),
+            ): selector.TimeSelector(),
+            vol.Optional(
+                CONF_TIME_DOWN_LATE_WORKDAY,
+                default=_time_default(
+                    self._options.get(
+                        CONF_TIME_DOWN_LATE_WORKDAY,
+                        DEFAULT_TIME_SETTINGS[CONF_TIME_DOWN_LATE_WORKDAY],
+                    )
+                ),
+            ): selector.TimeSelector(),
+            vol.Optional(
+                CONF_TIME_UP_EARLY_NON_WORKDAY,
+                default=_time_default(
+                    self._options.get(
+                        CONF_TIME_UP_EARLY_NON_WORKDAY,
+                        DEFAULT_TIME_SETTINGS[CONF_TIME_UP_EARLY_NON_WORKDAY],
+                    )
+                ),
+            ): selector.TimeSelector(),
+            vol.Optional(
+                CONF_TIME_UP_LATE_NON_WORKDAY,
+                default=_time_default(
+                    self._options.get(
+                        CONF_TIME_UP_LATE_NON_WORKDAY,
+                        DEFAULT_TIME_SETTINGS[CONF_TIME_UP_LATE_NON_WORKDAY],
+                    )
+                ),
+            ): selector.TimeSelector(),
+            vol.Optional(
+                CONF_TIME_DOWN_EARLY_NON_WORKDAY,
+                default=_time_default(
+                    self._options.get(
+                        CONF_TIME_DOWN_EARLY_NON_WORKDAY,
+                        DEFAULT_TIME_SETTINGS[CONF_TIME_DOWN_EARLY_NON_WORKDAY],
+                    )
+                ),
+            ): selector.TimeSelector(),
+            vol.Optional(
+                CONF_TIME_DOWN_LATE_NON_WORKDAY,
+                default=_time_default(
+                    self._options.get(
+                        CONF_TIME_DOWN_LATE_NON_WORKDAY,
+                        DEFAULT_TIME_SETTINGS[CONF_TIME_DOWN_LATE_NON_WORKDAY],
+                    )
+                ),
+            ): selector.TimeSelector(),
+            vol.Optional(
                 CONF_POSITION_TOLERANCE,
                 default=self._options.get(CONF_POSITION_TOLERANCE, DEFAULT_TOLERANCE),
             ): vol.Coerce(float),
+            vol.Optional(
+                CONF_OPEN_POSITION,
+                default=self._options.get(
+                    CONF_OPEN_POSITION, DEFAULT_POSITION_SETTINGS[CONF_OPEN_POSITION]
+                ),
+            ): vol.Coerce(float),
+            vol.Optional(
+                CONF_CLOSE_POSITION,
+                default=self._options.get(
+                    CONF_CLOSE_POSITION, DEFAULT_POSITION_SETTINGS[CONF_CLOSE_POSITION]
+                ),
+            ): vol.Coerce(float),
+            vol.Optional(
+                CONF_VENTILATE_POSITION,
+                default=self._options.get(
+                    CONF_VENTILATE_POSITION,
+                    DEFAULT_POSITION_SETTINGS[CONF_VENTILATE_POSITION],
+                ),
+            ): vol.Coerce(float),
+            vol.Optional(
+                CONF_SHADING_POSITION,
+                default=self._options.get(
+                    CONF_SHADING_POSITION, DEFAULT_POSITION_SETTINGS[CONF_SHADING_POSITION]
+                ),
+            ): vol.Coerce(float),
+            vol.Optional(
+                CONF_EXPOSE_SWITCH_SETTINGS,
+                default=bool(self._options.get(CONF_EXPOSE_SWITCH_SETTINGS, False)),
+            ): bool,
         }
         if auto_ventilate:
             schema.update(
