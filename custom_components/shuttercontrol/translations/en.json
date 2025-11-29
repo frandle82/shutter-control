@@ -198,7 +198,7 @@
         },
     "recalibrate_cover": {
       "name": "Recalibrate cover",
-      "description": "Temporarily override a cover to fully open it, then return to the previous position and clear the override.",
+      "description": "Temporarily override a cover, use the standard open command to fully open it, then return to the previous position and clear the override. Use this when a cover needs to be realigned.",
       "fields": {
         "covers": {
           "name": "Cover",
