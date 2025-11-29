@@ -1,69 +1,112 @@
-"""Numbers to control shutter positions."""
+"""Expose controller state as sensor entities."""
 from __future__ import annotations
 
-from datetime import datetime, timedelta
-from typing import Any
+from datetime import datetime
 
-from homeassistant.components.number import NumberEntity, NumberMode
+from homeassistant.util import dt as dt_util
+from homeassistant.components.sensor import SensorDeviceClass, SensorEntity, SensorStateClass
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import PERCENTAGE
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, callback
+from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.util import slugify
 
-from .const import (
-    CONF_CLOSE_POSITION,
-    CONF_OPEN_POSITION,
-    CONF_SHADING_POSITION,
-    CONF_VENTILATE_POSITION,
-    CONF_NAME,
-    DEFAULT_NAME,
-    DOMAIN,
-)
-from .controller import ControllerManager
+from .const import CONF_AUTO_SHADING, CONF_NAME, DEFAULT_NAME, DOMAIN, SIGNAL_STATE_UPDATED
+from .controller import ControllerManager, IDLE_REASON
+
+REASON_LABELS = {
+    "manual_override": "override",
+    "manual_shading": "shading man",
+    "shading": "shading on",
+    "shading_end_close": "shading start",
+    "shading_end_open": "shading end",
+    "sun_close": "close (sun)",
+    "sun_open": "open (sun)",
+    "scheduled_close": "close (time)",
+    "scheduled_open": "open (time)",
+    "ventilation": "ventilation",
+    "resident_asleep": "resident",
+    "cold_protection": "cold",
+    IDLE_REASON: "idle",
+}
 
 def _instance_name(entry: ConfigEntry) -> str:
     return entry.options.get(CONF_NAME, entry.data.get(CONF_NAME, entry.title or DEFAULT_NAME))
 
-
-async def async_setup_entry(
-    hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback
-) -> None:
-    """Register configurable number entities."""
-
-    entities: list[NumberEntity] = [
-        ShutterPositionNumber(entry, CONF_OPEN_POSITION, "open_position","mdi:roller-shade"),
-        ShutterPositionNumber(entry, CONF_CLOSE_POSITION, "close_position","mdi:roller-shade-closed"),
-        ShutterPositionNumber(entry, CONF_VENTILATE_POSITION, "ventilate_position","mdi:roller-shade"),
-        ShutterPositionNumber(entry, CONF_SHADING_POSITION, "shading_position","mdi:roller-shade-closed"),
-    ]
-
+async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback) -> None:
+    manager: ControllerManager = hass.data[DOMAIN][entry.entry_id]
+    entities: list[SensorEntity] = []
+    for cover, controller in manager.controllers.items():
+        entities.extend(
+            [
+                ShutterNextOpenSensor(entry, cover),
+                ShutterNextCloseSensor(entry, cover),
+                ShutterVentilationSensor(entry, cover),
+                ShutterReasonSensor(entry, cover),
+            ]
+        )
+        if controller.config.get(CONF_AUTO_SHADING):
+            entities.append(ShutterShadingActiveSensor(entry, cover))
     async_add_entities(entities)
 
-    # Refresh controllers so they honor updated options as soon as they exist.
-    manager: ControllerManager = hass.data[DOMAIN][entry.entry_id]
-    manager.async_update_options()
 
-
-class ShutterPositionNumber(NumberEntity):
-    """Number entity that updates config entry options for positions."""
+class ShutterBaseSensor(SensorEntity):
+    """Common helpers for per-cover sensors."""
 
     _attr_should_poll = False
-    _attr_native_unit_of_measurement = PERCENTAGE
-    _attr_native_min_value = 0
-    _attr_native_max_value = 100
-    _attr_native_step = 1
-    _attr_mode = NumberMode.BOX
     _attr_has_entity_name = True
-    
-    def __init__(self, entry: ConfigEntry, key: str, translation_key: str, icon: str) -> None:
+
+    def __init__(self, entry: ConfigEntry, cover: str, suffix: str, translation_key: str) -> None:
         self.entry = entry
-        self._key = key
-        self._attr_unique_id = f"{entry.entry_id}-{key}"
+        self.cover = cover
+        self._reason: str | None = None
+        self._manual_until: datetime | None = None
+        self._manual_active: bool = False
+        self._next_open: datetime | None = None
+        self._next_close: datetime | None = None
+        self._shading_enabled: bool = False
+        self._shading_active: bool = False
+        self._ventilation_active: bool = False
+        slug = slugify(cover.split(".")[-1])
+        self._attr_unique_id = f"{entry.entry_id}-{slug}-{suffix}"
         self._attr_translation_key = translation_key
-        self._attr_translation_placeholders = {}
-        self._attr_friendly_name = f"{translation_key}"  # replaced via translations
-        self._attr_icon = icon
+        self._attr_translation_placeholders = {"cover": slug}
+    
+    def _normalize_dt(self, value: datetime | str | None) -> datetime | None:
+        """Ensure dispatcher values are stored as timezone-aware datetimes."""
+
+        if isinstance(value, datetime):
+            return value
+        if not value:
+            return None
+        parsed = dt_util.parse_datetime(str(value))
+        if parsed:
+            return dt_util.as_utc(parsed)
+        return None
+
+    @property
+    def extra_state_attributes(self):
+        return {
+            "reason": self._reason or IDLE_REASON,
+            "manual_override_until": self._manual_until.isoformat() if isinstance(self._manual_until, datetime) else self._manual_until,
+            "cover_entity": self.cover,
+            "next_open": self._next_open.isoformat() if isinstance(self._next_open, datetime) else self._next_open,
+            "next_close": self._next_close.isoformat() if isinstance(self._next_close, datetime) else self._next_close,
+            "shading_enabled": self._shading_enabled,
+            "shading_active": self._shading_active,
+            "ventilation": self._ventilation_active,
+            "manual_override": bool(
+                self._manual_active
+                or (
+                    isinstance(self._manual_until, datetime)
+                    and self._manual_until
+                    and dt_util.utcnow() < self._manual_until
+                )
+            ),
+            "manual_override_active": self._manual_active,
+        }
 
     @property
     def device_info(self) -> DeviceInfo:
@@ -72,20 +115,155 @@ class ShutterPositionNumber(NumberEntity):
             name=_instance_name(self.entry),
         )
 
-    @property
-    def native_value(self) -> int | None:
-        value = self.entry.options.get(self._key, self.entry.data.get(self._key))
-        if value is None:
-            return None
-        try:
-            return int(value)
-        except (TypeError, ValueError):
-            return None
-
-    async def async_set_native_value(self, value: int) -> None:
-        options = {**self.entry.options, self._key: int(value)}
-        update_result = self.hass.config_entries.async_update_entry(
-            self.entry, options=options
+    async def async_added_to_hass(self) -> None:
+        self._attr_translation_placeholders = {"cover": self._cover_label()}
+        self.async_on_remove(
+            async_dispatcher_connect(
+                self.hass,
+                SIGNAL_STATE_UPDATED,
+                self._handle_state_update,
+            )
         )
-        if inspect.isawaitable(update_result):
-            await update_result
+        manager: ControllerManager = self.hass.data[DOMAIN][self.entry.entry_id]
+        snapshot = manager.state_snapshot(self.cover)
+        if snapshot:
+            (
+                self._target,
+                self._reason,
+                self._manual_until,
+                self._manual_active,
+                self._next_open,
+                self._next_close,
+                self._current_position,
+                self._shading_enabled,
+                self._shading_active,
+                self._ventilation_active,
+            ) = snapshot
+            self._manual_until = self._normalize_dt(self._manual_until)
+            self._next_open = self._normalize_dt(self._next_open)
+            self._next_close = self._normalize_dt(self._next_close)
+            self._reason = self._reason or IDLE_REASON
+        else:
+            self._reason = IDLE_REASON
+            self._shading_enabled = False
+            self._shading_active = False
+            self._ventilation_active = False
+            self._manual_active = False
+
+        self.async_write_ha_state()
+
+        # Some Home Assistant instances may still hold an older manager
+        # instance that does not expose ``publish_state``. Guard the call so
+        # sensors can finish setup instead of failing with ``AttributeError``.
+        if hasattr(manager, "publish_state"):
+            manager.publish_state(self.cover)
+
+    @callback
+    def _cover_label(self) -> str:
+        state = self.hass.states.get(self.cover)
+        if state and state.name:
+            return state.name
+        return self.cover.split(".")[-1]
+
+    @callback
+    def _handle_state_update(self, *payload: object) -> None:
+        # Normalize dispatcher payloads from different versions and pad any
+        # missing values to avoid runtime NameError issues during unpacking.
+        (
+            entry_id,
+            cover,
+            target,
+            reason,
+            manual_until,
+            manual_active,
+            next_open,
+            next_close,
+            current_position,
+            shading_enabled,
+            shading_active,
+            ventilation,
+            *_,
+        ) = (*payload, None, None, None, None, False, None, None, None, None, False, False, False)
+        if entry_id != self.entry.entry_id or cover != self.cover:
+            return
+        self._target = target  # type: ignore[assignment]
+        self._reason = (reason or IDLE_REASON)  # type: ignore[arg-type]
+        self._manual_until = self._normalize_dt(manual_until)  # type: ignore[arg-type]
+        self._manual_active = bool(manual_active)
+        self._next_open = self._normalize_dt(next_open)  # type: ignore[arg-type]
+        self._next_close = self._normalize_dt(next_close)  # type: ignore[arg-type]
+        self._current_position = current_position  # type: ignore[assignment]
+        self._shading_enabled = bool(shading_enabled)
+        self._shading_active = bool(shading_active)
+        self._ventilation_active = bool(ventilation)
+        self.async_write_ha_state()
+
+
+class ShutterNextOpenSensor(ShutterBaseSensor):
+    """Expose the next planned opening time."""
+
+    _attr_device_class = SensorDeviceClass.TIMESTAMP
+    _attr_icon = "mdi:clock-time-eight"
+
+    def __init__(self, entry: ConfigEntry, cover: str) -> None:
+        super().__init__(entry, cover, "next-open", "next_open")
+
+    @property
+    def native_value(self) -> datetime | None:
+        return self._next_open
+
+
+class ShutterNextCloseSensor(ShutterBaseSensor):
+    """Expose the next planned closing time."""
+
+    _attr_device_class = SensorDeviceClass.TIMESTAMP
+    _attr_icon = "mdi:clock-time-five"
+
+    def __init__(self, entry: ConfigEntry, cover: str) -> None:
+        super().__init__(entry, cover, "next-close", "next_close")
+
+    @property
+    def native_value(self) -> datetime | None:
+        return self._next_close
+
+class ShutterReasonSensor(ShutterBaseSensor):
+    """Expose the last automation reason."""
+
+    _attr_icon = "mdi:information"
+
+    def __init__(self, entry: ConfigEntry, cover: str) -> None:
+        super().__init__(entry, cover, "reason", "reason")
+
+    @property
+    def native_value(self) -> str | None:
+        code = self._reason or IDLE_REASON
+        return REASON_LABELS.get(code, code)
+
+class ShutterShadingActiveSensor(ShutterBaseSensor):
+    """Expose whether shading mode is active."""
+
+    _attr_icon = "mdi:sunglasses"
+
+    def __init__(self, entry: ConfigEntry, cover: str) -> None:
+        super().__init__(entry, cover, "shading", "shading_active")
+
+    @property
+    def native_value(self) -> bool:
+        return bool(self._shading_active)
+
+    @property
+    def available(self) -> bool:
+        return True
+
+
+class ShutterVentilationSensor(ShutterBaseSensor):
+    """Expose whether ventilation mode is active."""
+
+    _attr_icon = "mdi:window-open-variant"
+
+    def __init__(self, entry: ConfigEntry, cover: str) -> None:
+        super().__init__(entry, cover, "ventilation", "ventilation")
+
+    @property
+    def native_value(self) -> bool:
+        return bool(self._ventilation_active)
