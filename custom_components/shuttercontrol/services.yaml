@@ -16,14 +16,14 @@ move_covers:
             - close
 recalibrate_cover:
   name: Recalibrate cover
-  description: Temporarily override a cover to fully open it, then return it to its previous position and clear the override. Useful for recalibrating.
+  description: Temporarily override a cover, use the standard open command to fully open it, then return it to its previous position and clear the override. Useful for recalibrating.
   target:
     entity:
       domain: cover
   fields:
     covers:
-      name: Cover (legacy)
-      description: The cover entity to recalibrate when not using a target.
+      name: Cover
+      description: The cover entity to recalibrate.
       required: false
       selector:
         entity:
