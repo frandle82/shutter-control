@@ -81,6 +81,7 @@ CONF_MANUAL_OVERRIDE_BLOCK_VENTILATE = "manual_override_block_ventilate"
 CONF_MANUAL_OVERRIDE_BLOCK_SHADING = "manual_override_block_shading"
 CONF_MANUAL_OVERRIDE_RESET_MODE = "manual_override_reset_mode"
 CONF_MANUAL_OVERRIDE_RESET_TIME = "manual_override_reset_time"
+CONF_FULL_OPEN_POSITION = "full_open_position"
 
 MANUAL_OVERRIDE_RESET_NONE = "none"
 MANUAL_OVERRIDE_RESET_TIME = "time"
