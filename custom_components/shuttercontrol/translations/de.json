@@ -34,7 +34,19 @@
           "ventilate_position_entity": "Positions-Helfer für Lüftung",
           "temperature_sensor_outdoor": "Temperatursensor außen (optional)",
           "temperature_threshold": "Temperaturschwelle",
-          "temperature_forecast_threshold": "Vorhersage-Temperaturschwelle"
+          "temperature_forecast_threshold": "Vorhersage-Temperaturschwelle",
+          "time_up_early_workday": "Früheste Öffnungszeit (Arbeitstag)",
+          "time_up_late_workday": "Späteste Öffnungszeit (Arbeitstag)",
+          "time_down_early_workday": "Früheste Schließzeit (Arbeitstag)",
+          "time_down_late_workday": "Späteste Schließzeit (Arbeitstag)",
+          "time_up_early_non_workday": "Früheste Öffnungszeit (frei)",
+          "time_up_late_non_workday": "Späteste Öffnungszeit (frei)",
+          "time_down_early_non_workday": "Früheste Schließzeit (frei)",
+          "time_down_late_non_workday": "Späteste Schließzeit (frei)",
+          "open_position": "Öffnungsposition",
+          "close_position": "Schließposition",
+          "ventilate_position": "Lüftungsposition",
+          "shading_position": "Beschattungsposition"
         }
       },
       "shading": {
@@ -103,7 +115,20 @@
           "manual_override_block_open": "Nächste automatische Öffnung nach manueller Änderung ignorieren",
           "manual_override_block_close": "Nächste automatische Schließung nach manueller Änderung ignorieren",
           "manual_override_block_ventilate": "Nächste automatische Lüftung nach manueller Änderung ignorieren",
-          "manual_override_block_shading": "Nächste automatische Beschattung nach manueller Änderung ignorieren"
+          "manual_override_block_shading": "Nächste automatische Beschattung nach manueller Änderung ignorieren",
+          "time_up_early_workday": "Früheste Öffnungszeit (Arbeitstag)",
+          "time_up_late_workday": "Späteste Öffnungszeit (Arbeitstag)",
+          "time_down_early_workday": "Früheste Schließzeit (Arbeitstag)",
+          "time_down_late_workday": "Späteste Schließzeit (Arbeitstag)",
+          "time_up_early_non_workday": "Früheste Öffnungszeit (frei)",
+          "time_up_late_non_workday": "Späteste Öffnungszeit (frei)",
+          "time_down_early_non_workday": "Früheste Schließzeit (frei)",
+          "time_down_late_non_workday": "Späteste Schließzeit (frei)",
+          "open_position": "Öffnungsposition",
+          "close_position": "Schließposition",
+          "ventilate_position": "Lüftungsposition",
+          "shading_position": "Beschattungsposition",
+          "expose_switch_settings": "Konfiguration als Switch-Attribute anzeigen"
         }
       }
     }
@@ -141,19 +166,31 @@
       }
     },
     "time": {
-      "time_up_workday": {
-        "name": "Arbeitstag Öffnungszeit"
+      "time_up_early_workday": {
+        "name": "Früheste Öffnung (Arbeitstag)"
       },
-      "time_down_workday": {
-        "name": "Arbeitstag Schließzeit"
+      "time_up_late_workday": {
+        "name": "Späteste Öffnung (Arbeitstag)"
       },
-      "time_up_non_workday": {
-        "name": "Freier Tag Öffnungszeit"
+      "time_down_early_workday": {
+        "name": "Frühestes Schließen (Arbeitstag)"
       },
-      "time_down_non_workday": {
-        "name": "Freier Tag Schließzeit"
+      "time_down_late_workday": {
+        "name": "Spätestes Schließen (Arbeitstag)"
+      },
+      "time_up_early_non_workday": {
+        "name": "Früheste Öffnung (frei)"
+      },
+      "time_up_late_non_workday": {
+        "name": "Späteste Öffnung (frei)"
+      },
+      "time_down_early_non_workday": {
+        "name": "Frühestes Schließen (frei)"
+      },
+      "time_down_late_non_workday": {
+        "name": "Spätestes Schließen (frei)"
       }
-        },
+    },
     "switch": {
       "auto_up": {
         "name": "Automatisches Öffnen"
@@ -203,7 +240,7 @@
           "description": "Optional override duration; defaults to the integration setting."
         }
       }
-      },
+    },
     "recalibrate_cover": {
       "name": "Abdeckung neu kalibrieren",
       "description": "Setzt einen manuellen Override, nutzt den Standardbefehl zum Öffnen für eine vollständig geöffnete Abdeckung, stellt danach die vorherige Position wieder her und hebt den Override wieder auf. Hilfreich, wenn eine Abdeckung neu ausgerichtet werden muss.",
@@ -215,6 +252,20 @@
         "full_open_position": {
           "name": "Position für vollständig offen",
           "description": "Position für das vollständige Öffnen; Standard ist 100 %."
+        }
+      }
+    },
+    "change_switch_settings": {
+      "name": "Schalter-Einstellungen aktualisieren",
+      "description": "Schreibe neue Konfigurationswerte für einen Automations-Schalter.",
+      "fields": {
+        "entity_id": {
+          "name": "Automationsschalter",
+          "description": "Der Schalter, dessen Einstellungen übernommen werden sollen."
+        },
+        "settings": {
+          "name": "Einstellungen",
+          "description": "Schlüssel/Wert-Paare, die in der Schalter-Kategorie gespeichert werden."
         }
       }
     }
