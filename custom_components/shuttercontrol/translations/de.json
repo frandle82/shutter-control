@@ -34,9 +34,7 @@
           "ventilate_position_entity": "Positions-Helfer für Lüftung",
           "temperature_sensor_outdoor": "Temperatursensor außen (optional)",
           "temperature_threshold": "Temperaturschwelle",
-          "temperature_forecast_threshold": "Vorhersage-Temperaturschwelle",
-          "cold_protection_temperature": "Schließen bei Temperatur unter",
-          "cold_protection_forecast_sensor": "Temperaturvorhersage-Sensor (optional)"
+          "temperature_forecast_threshold": "Vorhersage-Temperaturschwelle"
         }
       },
       "shading": {
@@ -53,12 +51,13 @@
           "shading_elevation_max": "Maximale Sonnenhöhe für Beschattung",
           "shading_brightness_start": "Helligkeit zum Start der Beschattung",
           "shading_brightness_end": "Helligkeit zum Ende der Beschattung",
+          "shading_forecast_sensor": "Vorhersage-Wettersensor (optional)",
+          "shading_forecast_type": "Beschattung Vorhersagetyp",
+          "shading_weather_conditions": "Wetterbedingungen für Beschattung",
           "temperature_sensor_indoor": "Temperatursensor innen",
           "temperature_sensor_outdoor": "Temperatursensor außen",
           "temperature_threshold": "Temperaturschwelle",
           "temperature_forecast_threshold": "Vorhersage-Temperaturschwelle",
-          "cold_protection_temperature": "Schließe bei Temperatur unter",
-          "cold_protection_forecast_sensor": "Temperaturvorhersage-Sensor (optional)",
           "manual_override_minutes": "Minuten bis zum Zurücksetzen des manuellen Overrides",
           "manual_override_reset_mode": "Manuelles Override zurücksetzen",
           "manual_override_reset_time": "Uhrzeit zum Zurücksetzen des manuellen Overrides",
@@ -91,12 +90,13 @@
           "shading_elevation_max": "Maximale Sonnenhöhe für Beschattung",
           "shading_brightness_start": "Helligkeit zum Start der Beschattung",
           "shading_brightness_end": "Helligkeit zum Ende der Beschattung",
+          "shading_forecast_sensor": "Vorhersage-Wettersensor (optional)",
+          "shading_forecast_type": "Beschattung Vorhersagetyp",
+          "shading_weather_conditions": "Wetterbedingungen für Beschattung",
           "temperature_sensor_indoor": "Temperatursensor innen (optional)",
           "temperature_sensor_outdoor": "Temperatursensor außen (optional)",
           "temperature_threshold": "Temperaturschwelle",
           "temperature_forecast_threshold": "Vorhersage-Temperaturschwelle",
-          "cold_protection_temperature": "Schließe bei Temperatur unter",
-          "cold_protection_forecast_sensor": "Temperaturvorhersage-Sensor (optional)",
           "manual_override_minutes": "Minuten bis zum Zurücksetzen des manuellen Overrides",
           "manual_override_reset_mode": "Manuelles Override zurücksetzen",
           "manual_override_reset_time": "Uhrzeit zum Zurücksetzen des manuellen Overrides",
@@ -172,9 +172,6 @@
       },
       "auto_shading": {
         "name": "Beschattung"
-      },
-      "auto_cold": {
-        "name": "Kälteschutz"
       }
     }
   },
