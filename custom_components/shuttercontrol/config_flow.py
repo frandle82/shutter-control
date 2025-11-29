@@ -362,71 +362,87 @@ class ShutterOptionsFlow(config_entries.OptionsFlow):
             vol.Required(CONF_COVERS, default=self._options.get(CONF_COVERS, [])): selector.EntitySelector(
                 selector.EntitySelectorConfig(domain=["cover"], multiple=True)
             ),
-            vol.Optional(
-                CONF_RESIDENT_SENSOR, default=self._optional_default(CONF_RESIDENT_SENSOR)
-            ): selector.EntitySelector(
-                selector.EntitySelectorConfig(domain=["binary_sensor", "switch"])
-            ),
-            vol.Optional(
-                CONF_WORKDAY_SENSOR, default=self._optional_default(CONF_WORKDAY_SENSOR)
-            ): selector.EntitySelector(
-                selector.EntitySelectorConfig(domain=["binary_sensor", "sensor"])
-            ),
-            vol.Optional(
-                CONF_MANUAL_OVERRIDE_MINUTES,
-                default=self._options.get(CONF_MANUAL_OVERRIDE_MINUTES, DEFAULT_MANUAL_OVERRIDE_MINUTES),
-            ): vol.Coerce(int),
-            vol.Optional(
-                CONF_MANUAL_OVERRIDE_RESET_MODE,
-                default=self._options.get(CONF_MANUAL_OVERRIDE_RESET_MODE, MANUAL_OVERRIDE_RESET_TIMEOUT),
-            ): selector.SelectSelector(
-                selector.SelectSelectorConfig(
-                    options=[
-                        {"value": MANUAL_OVERRIDE_RESET_NONE, "label": "No timed reset"},
-                        {"value": MANUAL_OVERRIDE_RESET_TIME, "label": "Reset at specific time"},
-                        {"value": MANUAL_OVERRIDE_RESET_TIMEOUT, "label": "Reset after timeout (minutes)"},
-                    ]
-                )
-            ),
-            vol.Optional(
-                CONF_MANUAL_OVERRIDE_RESET_TIME,
-                 default=_time_default(
-                    self._options.get(
-                        CONF_MANUAL_OVERRIDE_RESET_TIME,
+        }
+        if auto_ventilate:
+            schema.update(
+                {
+                    **{
+                        vol.Optional(self._cover_key(cover), default=self._existing_windows_for_cover(cover),
+                        ): selector.EntitySelector(
+                            selector.EntitySelectorConfig(domain=["binary_sensor"], multiple=True)
+                        )
+                            for cover in self._options.get(CONF_COVERS, [])
+                    },
+                }
+            )
+        schema.update(
+            {
+                vol.Optional(
+                    CONF_RESIDENT_SENSOR, default=self._optional_default(CONF_RESIDENT_SENSOR)
+                ): selector.EntitySelector(
+                    selector.EntitySelectorConfig(domain=["binary_sensor", "switch"])
+                ),
+                vol.Optional(
+                    CONF_WORKDAY_SENSOR, default=self._optional_default(CONF_WORKDAY_SENSOR)
+                ): selector.EntitySelector(
+                    selector.EntitySelectorConfig(domain=["binary_sensor", "sensor"])
+                ),
+                vol.Optional(
+                    CONF_MANUAL_OVERRIDE_RESET_MODE,
+                    default=self._options.get(CONF_MANUAL_OVERRIDE_RESET_MODE, MANUAL_OVERRIDE_RESET_TIMEOUT),
+                ): selector.SelectSelector(
+                    selector.SelectSelectorConfig(
+                        options=[
+                            {"value": MANUAL_OVERRIDE_RESET_NONE, "label": "No timed reset"},
+                            {"value": MANUAL_OVERRIDE_RESET_TIME, "label": "Reset at specific time"},
+                            {"value": MANUAL_OVERRIDE_RESET_TIMEOUT, "label": "Reset after timeout (minutes)"},
+                        ]
+                    )
+                ),
+                vol.Optional(
+                    CONF_MANUAL_OVERRIDE_RESET_TIME,
+                    default=_time_default(
+                        self._options.get(
+                            CONF_MANUAL_OVERRIDE_RESET_TIME,
+                            DEFAULT_MANUAL_OVERRIDE_RESET_TIME,
+                        ),
                         DEFAULT_MANUAL_OVERRIDE_RESET_TIME,
                     ),
-                    DEFAULT_MANUAL_OVERRIDE_RESET_TIME,
-                ),
-            ): selector.TimeSelector(),
-            vol.Optional(
-                CONF_MANUAL_OVERRIDE_BLOCK_OPEN,
-                default=self._options.get(
+                ): selector.TimeSelector(),
+                vol.Optional(
+                    CONF_MANUAL_OVERRIDE_MINUTES,
+                    default=self._options.get(CONF_MANUAL_OVERRIDE_MINUTES, DEFAULT_MANUAL_OVERRIDE_MINUTES),
+                ): vol.Coerce(int),
+                vol.Optional(
                     CONF_MANUAL_OVERRIDE_BLOCK_OPEN,
-                    DEFAULT_MANUAL_OVERRIDE_FLAGS[CONF_MANUAL_OVERRIDE_BLOCK_OPEN],
-                ),
-            ): bool,
-            vol.Optional(
-                CONF_MANUAL_OVERRIDE_BLOCK_CLOSE,
-                default=self._options.get(
+                    default=self._options.get(
+                        CONF_MANUAL_OVERRIDE_BLOCK_OPEN,
+                        DEFAULT_MANUAL_OVERRIDE_FLAGS[CONF_MANUAL_OVERRIDE_BLOCK_OPEN],
+                    ),
+                ): bool,
+                vol.Optional(
                     CONF_MANUAL_OVERRIDE_BLOCK_CLOSE,
-                    DEFAULT_MANUAL_OVERRIDE_FLAGS[CONF_MANUAL_OVERRIDE_BLOCK_CLOSE],
-                ),
-            ): bool,
-            vol.Optional(
-                CONF_MANUAL_OVERRIDE_BLOCK_VENTILATE,
-                default=self._options.get(
+                    default=self._options.get(
+                        CONF_MANUAL_OVERRIDE_BLOCK_CLOSE,
+                        DEFAULT_MANUAL_OVERRIDE_FLAGS[CONF_MANUAL_OVERRIDE_BLOCK_CLOSE],
+                    ),
+                ): bool,
+                vol.Optional(
                     CONF_MANUAL_OVERRIDE_BLOCK_VENTILATE,
-                    DEFAULT_MANUAL_OVERRIDE_FLAGS[CONF_MANUAL_OVERRIDE_BLOCK_VENTILATE],
-                ),
-            ): bool,
-            vol.Optional(
-                CONF_MANUAL_OVERRIDE_BLOCK_SHADING,
-                default=self._options.get(
+                    default=self._options.get(
+                        CONF_MANUAL_OVERRIDE_BLOCK_VENTILATE,
+                        DEFAULT_MANUAL_OVERRIDE_FLAGS[CONF_MANUAL_OVERRIDE_BLOCK_VENTILATE],
+                    ),
+                ): bool,
+                vol.Optional(
                     CONF_MANUAL_OVERRIDE_BLOCK_SHADING,
-                    DEFAULT_MANUAL_OVERRIDE_FLAGS[CONF_MANUAL_OVERRIDE_BLOCK_SHADING],
-                ),
-            ): bool,
-        }
+                    default=self._options.get(
+                        CONF_MANUAL_OVERRIDE_BLOCK_SHADING,
+                        DEFAULT_MANUAL_OVERRIDE_FLAGS[CONF_MANUAL_OVERRIDE_BLOCK_SHADING],
+                    ),
+                ): bool,
+            }
+        )
 
         if auto_brightness:
             schema.update(
@@ -525,21 +541,6 @@ class ShutterOptionsFlow(config_entries.OptionsFlow):
                     ): selector.EntitySelector(
                         selector.EntitySelectorConfig(domain=["sensor", "weather"])
                     ),
-                }
-            )
-
-        if auto_ventilate:
-            schema.update(
-                {
-                    **{
-                        vol.Optional(
-                            self._cover_key(cover),
-                            default=self._existing_windows_for_cover(cover),
-                        ): selector.EntitySelector(
-                            selector.EntitySelectorConfig(domain=["binary_sensor"], multiple=True)
-                        )
-                        for cover in self._options.get(CONF_COVERS, [])
-                    },
                 }
             )
 
