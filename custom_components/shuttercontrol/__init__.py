@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import asyncio
 
+from homeassistant.const import ATTR_ENTITY_ID
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import config_validation as cv
@@ -12,8 +13,10 @@ import voluptuous as vol
 from .config_entities import ensure_config_entities
 from .const import (
     CONF_COVERS,
+    CONF_FULL_OPEN_POSITION,
     CONF_MANUAL_OVERRIDE_MINUTES,
     DEFAULT_MANUAL_OVERRIDE_MINUTES,
+    DEFAULT_OPEN_POSITION,
     DOMAIN,
     PLATFORMS,
 )
@@ -23,7 +26,7 @@ from .controller import ControllerManager
 SERVICE_MANUAL_OVERRIDE = "set_manual_override"
 SERVICE_ACTIVATE_SHADING = "activate_shading"
 SERVICE_CLEAR_MANUAL_OVERRIDE = "clear_manual_override"
-SERVICE_RELOAD = "reload"
+SERVICE_RECALIBRATE = "recalibrate_cover"
 
 
 async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
@@ -88,19 +91,41 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
             handle_clear_manual_override,
             schema=cv.make_entity_service_schema({vol.Required(CONF_COVERS): cv.entity_id}),
         )
-    if SERVICE_RELOAD not in hass.services.async_services_for_domain(DOMAIN):
-        async def handle_reload(call):
-            reload_tasks = [
-                hass.config_entries.async_reload(entry.entry_id)
-                for entry in hass.config_entries.async_entries(DOMAIN)
-            ]
-            if reload_tasks:
-                await asyncio.gather(*reload_tasks)
+    if SERVICE_RECALIBRATE not in hass.services.async_services_for_domain(DOMAIN):
+        def _resolve_cover(call) -> str:
+            cover = call.data.get(CONF_COVERS) or call.data.get(ATTR_ENTITY_ID)
+            if cover is None:
+                raise ValueError("No cover entity provided")
+            if isinstance(cover, list):
+                if len(cover) != 1:
+                    raise ValueError("Provide a single cover entity for recalibration")
+                return cover[0]
+            return cover
+        async def handle_recalibrate(call):
+            cover = _resolve_cover(call)
+            full_open = call.data.get(CONF_FULL_OPEN_POSITION, DEFAULT_OPEN_POSITION)
+            matched = False
+            for manager in hass.data.get(DOMAIN, {}).values():
+                if isinstance(manager, ControllerManager):
+                    if await manager.recalibrate_cover(cover, full_open):
+                        matched = True
+                        break
+            if not matched:
+                raise ValueError(f"No controller registered for {cover}")
 
         hass.services.async_register(
             DOMAIN,
-            SERVICE_RELOAD,
-            handle_reload,
+            SERVICE_RECALIBRATE,
+            handle_recalibrate,
+            schema=vol.Schema(
+                {
+                vol.Optional(CONF_COVERS): vol.Any(cv.entity_id, [cv.entity_id]),
+                vol.Optional(ATTR_ENTITY_ID): vol.Any(cv.entity_id, [cv.entity_id]),
+                vol.Optional(CONF_FULL_OPEN_POSITION, default=DEFAULT_OPEN_POSITION): vol.All(
+                    vol.Coerce(float), vol.Range(min=0, max=100)
+                ),
+                }
+            ),
         )
 
     return True
