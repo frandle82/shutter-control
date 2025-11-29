@@ -26,7 +26,19 @@
           "temperature_threshold": "Temperature threshold",
           "temperature_forecast_threshold": "Forecast temperature threshold",
           "cold_protection_temperature": "Close when temperature below",
-          "cold_protection_forecast_sensor": "Forecast temperature sensor (optional)"
+          "cold_protection_forecast_sensor": "Forecast temperature sensor (optional)",
+          "time_up_early_workday": "Earliest open time (workday)",
+          "time_up_late_workday": "Latest open time (workday)",
+          "time_down_early_workday": "Earliest close time (workday)",
+          "time_down_late_workday": "Latest close time (workday)",
+          "time_up_early_non_workday": "Earliest open time (non-workday)",
+          "time_up_late_non_workday": "Latest open time (non-workday)",
+          "time_down_early_non_workday": "Earliest close time (non-workday)",
+          "time_down_late_non_workday": "Latest close time (non-workday)",
+          "open_position": "Open position",
+          "close_position": "Close position",
+          "ventilate_position": "Ventilation position",
+          "shading_position": "Shading position"
         }
       },
       "shading": {
@@ -94,7 +106,20 @@
           "manual_override_block_open": "Ignore next automatic opening after manual changes",
           "manual_override_block_close": "Ignore next automatic closing after manual changes",
           "manual_override_block_ventilate": "Ignore next automatic ventilation after manual changes",
-          "manual_override_block_shading": "Ignore next automatic sun shading after manual changes"
+          "manual_override_block_shading": "Ignore next automatic sun shading after manual changes",
+          "time_up_early_workday": "Earliest open time (workday)",
+          "time_up_late_workday": "Latest open time (workday)",
+          "time_down_early_workday": "Earliest close time (workday)",
+          "time_down_late_workday": "Latest close time (workday)",
+          "time_up_early_non_workday": "Earliest open time (non-workday)",
+          "time_up_late_non_workday": "Latest open time (non-workday)",
+          "time_down_early_non_workday": "Earliest close time (non-workday)",
+          "time_down_late_non_workday": "Latest close time (non-workday)",
+          "open_position": "Open position",
+          "close_position": "Close position",
+          "ventilate_position": "Ventilation position",
+          "shading_position": "Shading position",
+          "expose_switch_settings": "Expose automation settings as switch attributes"
         }
       }
     }
@@ -132,17 +157,29 @@
       }
     },
     "time": {
-      "time_up_workday": {
-        "name": "Workday open time"
+      "time_up_early_workday": {
+        "name": "Earliest open (workday)"
       },
-      "time_down_workday": {
-        "name": "Workday close time"
+      "time_up_late_workday": {
+        "name": "Latest open (workday)"
       },
-      "time_up_non_workday": {
-        "name": "Non Workday open time"
+      "time_down_early_workday": {
+        "name": "Earliest close (workday)"
       },
-      "time_down_non_workday": {
-        "name": "Non Workday close time"
+      "time_down_late_workday": {
+        "name": "Latest close (workday)"
+      },
+      "time_up_early_non_workday": {
+        "name": "Earliest open (non-workday)"
+      },
+      "time_up_late_non_workday": {
+        "name": "Latest open (non-workday)"
+      },
+      "time_down_early_non_workday": {
+        "name": "Earliest close (non-workday)"
+      },
+      "time_down_late_non_workday": {
+        "name": "Latest close (non-workday)"
       }
     },
     "switch": {
@@ -194,7 +231,7 @@
           "description": "Optional override duration; defaults to the integration setting."
         }
       }
-        },
+    },
     "recalibrate_cover": {
       "name": "Recalibrate cover",
       "description": "Temporarily override a cover, use the standard open command to fully open it, then return to the previous position and clear the override. Use this when a cover needs to be realigned.",
@@ -206,6 +243,20 @@
         "full_open_position": {
           "name": "Fully open position",
           "description": "Position to use for fully opening the cover; defaults to 100%."
+        }
+      }
+    },
+    "change_switch_settings": {
+      "name": "Update switch settings",
+      "description": "Apply configuration values for an automation toggle switch.",
+      "fields": {
+        "entity_id": {
+          "name": "Automation switch",
+          "description": "Switch entity that represents the automation to update."
+        },
+        "settings": {
+          "name": "Settings",
+          "description": "Key/value pairs to store with the switch's configuration category."
         }
       }
     }
