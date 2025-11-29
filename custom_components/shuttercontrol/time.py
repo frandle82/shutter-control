@@ -12,10 +12,14 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.util import dt as dt_util
 
 from .const import (
-    CONF_TIME_UP_WORKDAY,
-    CONF_TIME_UP_NON_WORKDAY,
-    CONF_TIME_DOWN_WORKDAY,
-    CONF_TIME_DOWN_NON_WORKDAY,
+    CONF_TIME_UP_EARLY_WORKDAY,
+    CONF_TIME_UP_EARLY_NON_WORKDAY,
+    CONF_TIME_UP_LATE_WORKDAY,
+    CONF_TIME_UP_LATE_NON_WORKDAY,
+    CONF_TIME_DOWN_EARLY_WORKDAY,
+    CONF_TIME_DOWN_EARLY_NON_WORKDAY,
+    CONF_TIME_DOWN_LATE_WORKDAY,
+    CONF_TIME_DOWN_LATE_NON_WORKDAY,
     CONF_NAME,
     DEFAULT_NAME,
     DOMAIN,
@@ -31,10 +35,14 @@ async def async_setup_entry(
     """Register time entities for scheduling."""
 
     entities: list[TimeEntity] = [
-        ShutterTimeEntity(entry, CONF_TIME_UP_WORKDAY, "time_up_workday","mdi:sort-clock-descending-outline"),
-        ShutterTimeEntity(entry, CONF_TIME_DOWN_WORKDAY, "time_down_workday","mdi:sort-clock-ascending-outline"),
-        ShutterTimeEntity(entry, CONF_TIME_UP_NON_WORKDAY, "time_up_non_workday","mdi:sort-clock-descending-outline"),
-        ShutterTimeEntity(entry, CONF_TIME_DOWN_NON_WORKDAY, "time_down_non_workday","mdi:sort-clock-ascending-outline"),
+        ShutterTimeEntity(entry, CONF_TIME_UP_EARLY_WORKDAY, "time_up_early_workday","mdi:sort-clock-descending-outline"),
+        ShutterTimeEntity(entry, CONF_TIME_UP_LATE_WORKDAY, "time_up_late_workday","mdi:sort-clock-ascending-outline"),
+        ShutterTimeEntity(entry, CONF_TIME_DOWN_EARLY_WORKDAY, "time_down_early_workday","mdi:sort-clock-descending-outline"),
+        ShutterTimeEntity(entry, CONF_TIME_DOWN_LATE_WORKDAY, "time_down_late_workday","mdi:sort-clock-ascending-outline"),
+        ShutterTimeEntity(entry, CONF_TIME_UP_EARLY_NON_WORKDAY, "time_up_early_non_workday","mdi:sort-clock-descending-outline"),
+        ShutterTimeEntity(entry, CONF_TIME_UP_LATE_NON_WORKDAY, "time_up_late_non_workday","mdi:sort-clock-ascending-outline"),
+        ShutterTimeEntity(entry, CONF_TIME_DOWN_EARLY_NON_WORKDAY, "time_down_early_non_workday","mdi:sort-clock-descending-outline"),
+        ShutterTimeEntity(entry, CONF_TIME_DOWN_LATE_NON_WORKDAY, "time_down_late_non_workday","mdi:sort-clock-ascending-outline"),
     ]
 
     async_add_entities(entities)
