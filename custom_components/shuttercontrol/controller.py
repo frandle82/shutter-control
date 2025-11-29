@@ -1,6 +1,7 @@
 """Core controller logic derived from the Cover Control Automation blueprint."""
 from __future__ import annotations
 
+import asyncio
 from datetime import datetime, timedelta, time
 
 from homeassistant import config_entries
@@ -168,6 +169,13 @@ class ControllerManager:
         controller.clear_manual_override()
         return True
 
+    async def recalibrate_cover(self, cover: str, full_open: float | None) -> bool:
+        controller = self.controllers.get(cover)
+        if not controller:
+            return False
+        await controller.recalibrate(full_open)
+        return True
+
     def state_snapshot(
         self, cover: str
         ) -> tuple[
@@ -263,7 +271,9 @@ class ShutterController:
         self._manual_until = None
         self._manual_active = False
         self._manual_scope_all = False
-        self._refresh_next_events(dt_util.utcnow())
+        now = dt_util.utcnow()
+        self._refresh_next_events(now)
+        self.hass.async_create_task(self._evaluate("config"))
         self._publish_state()
 
     @callback
@@ -412,6 +422,43 @@ class ShutterController:
             self._set_position(self.config.get(CONF_SHADING_POSITION), "manual_shading")
         )
 
+    async def recalibrate(self, full_open: float | None) -> None:
+        tolerance = float(self._position_value(CONF_POSITION_TOLERANCE, DEFAULT_TOLERANCE))
+        target_open = self._normalize_position(full_open, DEFAULT_OPEN_POSITION)
+        current_position = self._current_position()
+
+        manual_state = (
+            self._manual_until,
+            self._manual_active,
+            self._manual_scope_all,
+            self._reason,
+        )
+
+        self._activate_manual_override(
+            minutes=self.config.get(
+                CONF_MANUAL_OVERRIDE_MINUTES, DEFAULT_MANUAL_OVERRIDE_MINUTES
+            ),
+            scope_all=True,
+            reason="manual_override",
+        )
+
+        try:
+            await self._command_position(target_open)
+            await self._wait_for_position(target_open, tolerance)
+
+            if current_position is not None:
+                await self._command_position(current_position)
+                await self._wait_for_position(current_position, tolerance)
+        finally:
+            (
+                self._manual_until,
+                self._manual_active,
+                self._manual_scope_all,
+                self._reason,
+            ) = manual_state
+            self._refresh_next_events(dt_util.utcnow())
+            self._publish_state()
+
     def _expire_manual_override(self, now: datetime) -> None:
         if self._manual_until and now >= self._manual_until:
             self._manual_until = None
@@ -504,9 +551,13 @@ class ShutterController:
                     )
                     return
 
-        if self._auto_enabled(CONF_AUTO_UP) and up_due:
-            if self._sun_allows_open(sun_elevation) and self._brightness_allows_open(brightness):
-                
+        time_window_open = self._within_open_close_window(now)
+        sun_open_enabled = self._auto_enabled(CONF_AUTO_SUN)
+        sun_allows_open = sun_open_enabled and self._sun_allows_open(sun_elevation)
+
+        if self._auto_enabled(CONF_AUTO_UP) and (up_due or time_window_open or sun_allows_open):
+            brightness_allows_open = self._brightness_allows_open(brightness)
+            if brightness_allows_open and (sun_allows_open or not sun_open_enabled):
                 if not self._manual_blocks_action("open"):
                     await self._set_position(
                         self._position_value(CONF_OPEN_POSITION, DEFAULT_OPEN_POSITION),
@@ -674,6 +725,29 @@ class ShutterController:
             return parsed
         return _parse_time(fallback)
 
+    def _within_open_close_window(self, now: datetime) -> bool:
+        workday = self._is_workday()
+        open_time = self._time_setting(workday, True)
+        close_time = self._time_setting(workday, False)
+        if not open_time or not close_time:
+            return False
+
+        local_now = dt_util.as_local(now)
+
+        def _window_for(date_value) -> tuple[datetime, datetime]:
+            start = datetime.combine(date_value, open_time, local_now.tzinfo)
+            end = datetime.combine(date_value, close_time, local_now.tzinfo)
+            if end <= start:
+                end = end + timedelta(days=1)
+            return start, end
+
+        for offset in (0, -1):
+            start, end = _window_for(local_now.date() + timedelta(days=offset))
+            if start <= local_now < end:
+                return True
+        return False
+
+
     def _event_due(self, target: datetime | None, now: datetime) -> bool:
         if not target:
             return False
@@ -686,6 +760,13 @@ class ShutterController:
             return float(raw_value)
         except (TypeError, ValueError):
             return default
+
+    def _normalize_position(self, value: float | int | None, default: float) -> float:
+        try:
+            position = float(value)
+        except (TypeError, ValueError):
+            position = default
+        return max(0.0, min(100.0, position))
 
     def _auto_enabled(self, config_key: str) -> bool:
         entity_key = self._auto_entity_map.get(config_key)
@@ -827,3 +908,21 @@ class ShutterController:
             return False
         vent_target = self._position_value(CONF_VENTILATE_POSITION, DEFAULT_VENTILATE_POSITION)
         return self._position_matches(vent_target, current_position)
+
+    async def _command_position(self, position: float) -> None:
+        await self.hass.services.async_call(
+            "cover",
+            "set_cover_position",
+            {"entity_id": self.cover, "position": float(position)},
+            blocking=True,
+        )
+
+    async def _wait_for_position(
+        self, target: float, tolerance: float, timeout: int = 60
+    ) -> None:
+        end = dt_util.utcnow() + timedelta(seconds=timeout)
+        while dt_util.utcnow() < end:
+            current = self._current_position()
+            if current is not None and abs(current - target) <= tolerance:
+                return
+            await asyncio.sleep(1)
