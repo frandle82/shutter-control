@@ -37,3 +37,20 @@ recalibrate_cover:
           min: 0
           max: 100
           unit_of_measurement: '%'
+change_switch_settings:
+  name: Update switch settings
+  description: Apply configuration values for an automation toggle switch.
+  fields:
+    entity_id:
+      name: Automation switch
+      description: Switch entity that represents the automation to update.
+      required: true
+      selector:
+        entity:
+          domain: switch
+    settings:
+      name: Settings
+      description: Key/value pairs to store with the switch's configuration category.
+      required: true
+      selector:
+        object:
