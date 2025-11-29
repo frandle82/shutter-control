@@ -8,13 +8,37 @@ from homeassistant.helpers.entity import DeviceInfo, EntityCategory
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .const import (
+    CONF_EXPOSE_SWITCH_SETTINGS,
+    CONF_CLOSE_POSITION,
+    CONF_OPEN_POSITION,
+    CONF_POSITION_TOLERANCE,
+    CONF_SHADING_BRIGHTNESS_END,
+    CONF_SHADING_BRIGHTNESS_START,
+    CONF_SHADING_POSITION,
+    CONF_SUN_AZIMUTH_END,
+    CONF_SUN_AZIMUTH_START,
+    CONF_SUN_ELEVATION_CLOSE,
+    CONF_SUN_ELEVATION_MAX,
+    CONF_SUN_ELEVATION_MIN,
+    CONF_SUN_ELEVATION_OPEN,
+    CONF_TIME_DOWN_EARLY_NON_WORKDAY,
+    CONF_TIME_DOWN_EARLY_WORKDAY,
+    CONF_TIME_DOWN_LATE_NON_WORKDAY,
+    CONF_TIME_DOWN_LATE_WORKDAY,
+    CONF_TIME_UP_EARLY_NON_WORKDAY,
+    CONF_TIME_UP_EARLY_WORKDAY,
+    CONF_TIME_UP_LATE_NON_WORKDAY,
+    CONF_TIME_UP_LATE_WORKDAY,
     CONF_AUTO_BRIGHTNESS,
     CONF_AUTO_DOWN,
     CONF_AUTO_SHADING,
     CONF_AUTO_SUN,
     CONF_AUTO_UP,
     CONF_AUTO_VENTILATE,
+    CONF_VENTILATE_POSITION,
     CONF_BRIGHTNESS_SENSOR,
+    CONF_BRIGHTNESS_OPEN_ABOVE,
+    CONF_BRIGHTNESS_CLOSE_BELOW,
     CONF_NAME,
     DEFAULT_AUTOMATION_FLAGS,
     DEFAULT_NAME,
@@ -38,6 +62,54 @@ TOGGLE_ICONS: dict[str, str] = {
     CONF_AUTO_SUN: "mdi:weather-sunny",
     CONF_AUTO_VENTILATE: "mdi:fan-auto",
     CONF_AUTO_SHADING: "mdi:theme-light-dark",
+}
+
+SWITCH_SETTINGS: dict[str, set[str]] = {
+    CONF_AUTO_UP: {
+        CONF_TIME_UP_EARLY_WORKDAY,
+        CONF_TIME_UP_LATE_WORKDAY,
+        CONF_TIME_DOWN_EARLY_WORKDAY,
+        CONF_TIME_DOWN_LATE_WORKDAY,
+        CONF_TIME_UP_EARLY_NON_WORKDAY,
+        CONF_TIME_UP_LATE_NON_WORKDAY,
+        CONF_TIME_DOWN_EARLY_NON_WORKDAY,
+        CONF_TIME_DOWN_LATE_NON_WORKDAY,
+    },
+    CONF_AUTO_DOWN: {
+        CONF_TIME_UP_EARLY_WORKDAY,
+        CONF_TIME_UP_LATE_WORKDAY,
+        CONF_TIME_DOWN_EARLY_WORKDAY,
+        CONF_TIME_DOWN_LATE_WORKDAY,
+        CONF_TIME_UP_EARLY_NON_WORKDAY,
+        CONF_TIME_UP_LATE_NON_WORKDAY,
+        CONF_TIME_DOWN_EARLY_NON_WORKDAY,
+        CONF_TIME_DOWN_LATE_NON_WORKDAY,
+    },
+    CONF_AUTO_VENTILATE: {CONF_VENTILATE_POSITION, CONF_POSITION_TOLERANCE},
+    CONF_AUTO_SHADING: {
+        CONF_SHADING_POSITION,
+        CONF_SHADING_BRIGHTNESS_START,
+        CONF_SHADING_BRIGHTNESS_END,
+        CONF_SUN_AZIMUTH_START,
+        CONF_SUN_AZIMUTH_END,
+        CONF_SUN_ELEVATION_MIN,
+        CONF_SUN_ELEVATION_MAX,
+    },
+    CONF_AUTO_BRIGHTNESS: {
+        CONF_BRIGHTNESS_SENSOR,
+        CONF_BRIGHTNESS_OPEN_ABOVE,
+        CONF_BRIGHTNESS_CLOSE_BELOW,
+    },
+    CONF_AUTO_SUN: {
+        CONF_SUN_ELEVATION_OPEN,
+        CONF_SUN_ELEVATION_CLOSE,
+        CONF_SUN_AZIMUTH_START,
+        CONF_SUN_AZIMUTH_END,
+        CONF_SUN_ELEVATION_MIN,
+        CONF_SUN_ELEVATION_MAX,
+        CONF_OPEN_POSITION,
+        CONF_CLOSE_POSITION,
+    },
 }
 
 async def async_setup_entry(
@@ -99,6 +171,16 @@ class AutomationToggleSwitch(SwitchEntity):
         if value is None:
             value = self.entry.data.get(self._key, DEFAULT_AUTOMATION_FLAGS.get(self._key))
         return bool(value)
+
+    @property
+    def extra_state_attributes(self):
+        if not self.entry.options.get(CONF_EXPOSE_SWITCH_SETTINGS):
+            return None
+        allowed = SWITCH_SETTINGS.get(self._key)
+        if not allowed:
+            return None
+        config = {**self.entry.data, **self.entry.options}
+        return {key: config.get(key) for key in allowed if key in config}
 
     async def async_turn_on(self, **kwargs) -> None:  # type: ignore[override]
         options = {**self.entry.options, self._key: True}
