@@ -19,6 +19,7 @@ from .const import (
     CONF_AUTO_SUN,
     CONF_AUTO_UP,
     CONF_AUTO_VENTILATE,
+    CONF_POSITION_TOLERANCE,
     CONF_COLD_PROTECTION_FORECAST_SENSOR,
     CONF_COLD_PROTECTION_THRESHOLD,
     CONF_BRIGHTNESS_CLOSE_BELOW,
@@ -34,6 +35,9 @@ from .const import (
     CONF_MANUAL_OVERRIDE_RESET_TIME,
     CONF_NAME,
     CONF_RESIDENT_SENSOR,
+    CONF_SHADING_FORECAST_SENSOR,
+    CONF_SHADING_FORECAST_TYPE,
+    CONF_SHADING_WEATHER_CONDITIONS,
     CONF_SHADING_BRIGHTNESS_END,
     CONF_SHADING_BRIGHTNESS_START,
     CONF_SUN_AZIMUTH_END,
@@ -50,6 +54,7 @@ from .const import (
     CONF_WORKDAY_SENSOR,
     DEFAULT_BRIGHTNESS_CLOSE,
     DEFAULT_BRIGHTNESS_OPEN,
+    DEFAULT_TOLERANCE,
     DEFAULT_MANUAL_OVERRIDE_MINUTES,
     DEFAULT_MANUAL_OVERRIDE_FLAGS,
     DEFAULT_MANUAL_OVERRIDE_RESET_TIME,
@@ -58,6 +63,7 @@ from .const import (
     DEFAULT_SHADING_AZIMUTH_START,
     DEFAULT_SHADING_BRIGHTNESS_END,
     DEFAULT_SHADING_BRIGHTNESS_START,
+    DEFAULT_SHADING_FORECAST_TYPE,
     DEFAULT_SHADING_ELEVATION_MAX,
     DEFAULT_SHADING_ELEVATION_MIN,
     DEFAULT_SUN_ELEVATION_CLOSE,
@@ -208,6 +214,46 @@ class ShutterControlFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     vol.Optional(CONF_SUN_ELEVATION_MAX, default=DEFAULT_SHADING_ELEVATION_MAX): vol.Coerce(float),
                     vol.Optional(CONF_SHADING_BRIGHTNESS_START, default=DEFAULT_SHADING_BRIGHTNESS_START): vol.Coerce(float),
                     vol.Optional(CONF_SHADING_BRIGHTNESS_END, default=DEFAULT_SHADING_BRIGHTNESS_END): vol.Coerce(float),
+                    vol.Optional(CONF_SHADING_FORECAST_SENSOR): selector.EntitySelector(
+                        selector.EntitySelectorConfig(domain=["sensor", "weather"])
+                    ),
+                    vol.Optional(
+                        CONF_SHADING_FORECAST_TYPE,
+                        default=DEFAULT_SHADING_FORECAST_TYPE,
+                    ): selector.SelectSelector(
+                        selector.SelectSelectorConfig(
+                            options=[
+                                {"value": "daily", "label": "Use the daily weather forecast service"},
+                                {"value": "hourly", "label": "Use the hourly weather forecast service"},
+                                {
+                                    "value": "weather_attributes",
+                                    "label": "Do not use a weather forecast, but the current weather attributes",
+                                },
+                            ]
+                        )
+                    ),
+                    vol.Optional(CONF_SHADING_WEATHER_CONDITIONS, default=[]): selector.SelectSelector(
+                        selector.SelectSelectorConfig(
+                            options=[
+                                "clear-night",
+                                "cloudy",
+                                "exceptional",
+                                "fog",
+                                "hail",
+                                "lightning",
+                                "lightning-rainy",
+                                "partlycloudy",
+                                "pouring",
+                                "rainy",
+                                "snowy",
+                                "snowy-rainy",
+                                "sunny",
+                                "windy",
+                                "windy-variant",
+                            ],
+                            multiple=True,
+                        )
+                    ),
                     vol.Optional(CONF_MANUAL_OVERRIDE_RESET_MODE, default=self._data.get(CONF_MANUAL_OVERRIDE_RESET_MODE, MANUAL_OVERRIDE_RESET_TIMEOUT)): selector.SelectSelector(
                         selector.SelectSelectorConfig(
                             options=[
@@ -362,6 +408,10 @@ class ShutterOptionsFlow(config_entries.OptionsFlow):
             vol.Required(CONF_COVERS, default=self._options.get(CONF_COVERS, [])): selector.EntitySelector(
                 selector.EntitySelectorConfig(domain=["cover"], multiple=True)
             ),
+            vol.Optional(
+                CONF_POSITION_TOLERANCE,
+                default=self._options.get(CONF_POSITION_TOLERANCE, DEFAULT_TOLERANCE),
+            ): vol.Coerce(float),
         }
         if auto_ventilate:
             schema.update(
@@ -505,6 +555,55 @@ class ShutterOptionsFlow(config_entries.OptionsFlow):
                         CONF_SHADING_BRIGHTNESS_END,
                         default=self._options.get(CONF_SHADING_BRIGHTNESS_END, DEFAULT_SHADING_BRIGHTNESS_END),
                     ): vol.Coerce(float),
+                    vol.Optional(
+                        CONF_SHADING_FORECAST_SENSOR,
+                        default=self._optional_default(CONF_SHADING_FORECAST_SENSOR),
+                    ): selector.EntitySelector(
+                        selector.EntitySelectorConfig(domain=["sensor", "weather"])
+                    ),
+                    vol.Optional(
+                        CONF_SHADING_FORECAST_TYPE,
+                        default=self._options.get(
+                            CONF_SHADING_FORECAST_TYPE, DEFAULT_SHADING_FORECAST_TYPE
+                        ),
+                    ): selector.SelectSelector(
+                        selector.SelectSelectorConfig(
+                            options=[
+                                {"value": "daily", "label": "Use the daily weather forecast service"},
+                                {"value": "hourly", "label": "Use the hourly weather forecast service"},
+                                {
+                                    "value": "weather_attributes",
+                                    "label": "Do not use a weather forecast, but the current weather attributes",
+                                },
+                            ]
+                        )
+                    ),
+                    vol.Optional(
+                        CONF_SHADING_WEATHER_CONDITIONS,
+                        default=self._options.get(CONF_SHADING_WEATHER_CONDITIONS, []),
+                    ): selector.SelectSelector(
+                        selector.SelectSelectorConfig(
+                            options=[
+                                "clear-night",
+                                "clear",
+                                "cloudy",
+                                "fog",
+                                "hail",
+                                "lightning",
+                                "lightning-rainy",
+                                "partlycloudy",
+                                "pouring",
+                                "rainy",
+                                "snowy",
+                                "snowy-rainy",
+                                "sunny",
+                                "windy",
+                                "windy-variant",
+                                "exceptional",
+                            ],
+                            multiple=True,
+                        )
+                    ),
                 }
             )
 
@@ -513,13 +612,13 @@ class ShutterOptionsFlow(config_entries.OptionsFlow):
                 {
                     vol.Optional(
                         CONF_TEMPERATURE_SENSOR_INDOOR,
-                        default=self._options.default(CONF_TEMPERATURE_SENSOR_INDOOR),
+                        default=self._optional_default(CONF_TEMPERATURE_SENSOR_INDOOR),
                     ): selector.EntitySelector(
                         selector.EntitySelectorConfig(domain=["sensor"])
                     ),
                     vol.Optional(
                         CONF_TEMPERATURE_SENSOR_OUTDOOR,
-                        default=self._options.default(CONF_TEMPERATURE_SENSOR_OUTDOOR),
+                        default=self._optional_default(CONF_TEMPERATURE_SENSOR_OUTDOOR),
                     ): selector.EntitySelector(
                         selector.EntitySelectorConfig(domain=["sensor"])
                     ),
@@ -537,7 +636,7 @@ class ShutterOptionsFlow(config_entries.OptionsFlow):
                     ): vol.Coerce(float),
                     vol.Optional(
                         CONF_COLD_PROTECTION_FORECAST_SENSOR,
-                        default=self._options.default(CONF_COLD_PROTECTION_FORECAST_SENSOR),
+                        default=self._optional_default(CONF_COLD_PROTECTION_FORECAST_SENSOR),
                     ): selector.EntitySelector(
                         selector.EntitySelectorConfig(domain=["sensor", "weather"])
                     ),
