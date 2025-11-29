@@ -20,7 +20,6 @@ from .const import (
     DOMAIN,
     PLATFORMS,
 )
-from .config_entities import ensure_config_entities
 from .controller import ControllerManager
 
 SERVICE_MANUAL_OVERRIDE = "set_manual_override"
