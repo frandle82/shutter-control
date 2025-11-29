@@ -4,6 +4,7 @@ from __future__ import annotations
 import asyncio
 from datetime import datetime, timedelta, time
 
+from homeassistant.components.cover import CoverEntityFeature
 from homeassistant import config_entries
 from homeassistant.const import STATE_ON
 from homeassistant.core import CALLBACK_TYPE, HomeAssistant, callback
@@ -443,7 +444,7 @@ class ShutterController:
         )
 
         try:
-            await self._command_position(target_open)
+            await self._open_cover(target_open)
             await self._wait_for_position(target_open, tolerance)
 
             if current_position is not None:
@@ -909,7 +910,50 @@ class ShutterController:
         vent_target = self._position_value(CONF_VENTILATE_POSITION, DEFAULT_VENTILATE_POSITION)
         return self._position_matches(vent_target, current_position)
 
+    async def _open_cover(self, target: float | None = None) -> None:
+        """Open the cover using the native service call.
+
+        The optional ``target`` argument is accepted for backward compatibility with
+        earlier recalibration flows that passed a desired open position even though
+        the service call itself does not use it.
+        """
+        await self.hass.services.async_call(
+            "cover",
+            "open_cover",
+            {"entity_id": self.cover},
+            blocking=True,
+        )
+
     async def _command_position(self, position: float) -> None:
+        state = self.hass.states.get(self.cover)
+        supported = (state and state.attributes.get("supported_features")) or 0
+        supports_position = bool(int(supported) & CoverEntityFeature.SET_POSITION)
+
+        if supports_position:
+            await self.hass.services.async_call(
+                "cover",
+                "set_cover_position",
+                {"entity_id": self.cover, "position": float(position)},
+                blocking=True,
+            )
+            return
+
+        service: str | None = None
+        service_data = {"entity_id": self.cover}
+
+        if position >= 99.5:
+            service = "open_cover"
+        elif position <= 0.5:
+            service = "close_cover"
+
+        if service:
+            await self.hass.services.async_call(
+                "cover",
+                service,
+                service_data,
+                blocking=True,
+            )
+            return
         await self.hass.services.async_call(
             "cover",
             "set_cover_position",
@@ -918,8 +962,10 @@ class ShutterController:
         )
 
     async def _wait_for_position(
-        self, target: float, tolerance: float, timeout: int = 60
+        self, target: float, tolerance: float, timeout: int = 30
     ) -> None:
+        if self._current_position() is None:
+            return
         end = dt_util.utcnow() + timedelta(seconds=timeout)
         while dt_util.utcnow() < end:
             current = self._current_position()
