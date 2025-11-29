@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta
+import inspect
 from typing import Any
 
 from homeassistant.components.number import NumberEntity, NumberMode
