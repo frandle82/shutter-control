@@ -16,8 +16,6 @@ from homeassistant.util import dt as dt_util
 from .const import (
     CONF_AUTO_BRIGHTNESS,
     CONF_AUTO_BRIGHTNESS_ENTITY,
-    CONF_AUTO_COLD,
-    CONF_AUTO_COLD_ENTITY,
     CONF_AUTO_DOWN,
     CONF_AUTO_DOWN_ENTITY,
     CONF_AUTO_SHADING,
@@ -28,8 +26,6 @@ from .const import (
     CONF_AUTO_UP_ENTITY,
     CONF_AUTO_VENTILATE,
     CONF_AUTO_VENTILATE_ENTITY,
-    CONF_COLD_PROTECTION_FORECAST_SENSOR,
-    CONF_COLD_PROTECTION_THRESHOLD,
     CONF_BRIGHTNESS_CLOSE_BELOW,
     CONF_BRIGHTNESS_OPEN_ABOVE,
     CONF_BRIGHTNESS_SENSOR,
@@ -45,6 +41,9 @@ from .const import (
     CONF_OPEN_POSITION,
     CONF_POSITION_TOLERANCE,
     CONF_RESIDENT_SENSOR,
+    CONF_SHADING_FORECAST_SENSOR,
+    CONF_SHADING_FORECAST_TYPE,
+    CONF_SHADING_WEATHER_CONDITIONS,
     CONF_SHADING_BRIGHTNESS_END,
     CONF_SHADING_BRIGHTNESS_START,
     CONF_SHADING_POSITION,
@@ -78,6 +77,7 @@ from .const import (
     DEFAULT_VENTILATE_POSITION,
     DEFAULT_SHADING_POSITION,
     DEFAULT_CLOSE_POSITION,
+    DEFAULT_SHADING_FORECAST_TYPE,
     DOMAIN,
     SIGNAL_STATE_UPDATED,
     MANUAL_OVERRIDE_RESET_NONE,
@@ -234,7 +234,6 @@ class ShutterController:
             CONF_AUTO_SUN: CONF_AUTO_SUN_ENTITY,
             CONF_AUTO_VENTILATE: CONF_AUTO_VENTILATE_ENTITY,
             CONF_AUTO_SHADING: CONF_AUTO_SHADING_ENTITY,
-            CONF_AUTO_COLD: CONF_AUTO_COLD_ENTITY,
         }
 
     async def async_setup(self) -> None:
@@ -246,7 +245,6 @@ class ShutterController:
             self.config.get(CONF_WORKDAY_SENSOR),
             self.config.get(CONF_TEMPERATURE_SENSOR_INDOOR),
             self.config.get(CONF_TEMPERATURE_SENSOR_OUTDOOR),
-            self.config.get(CONF_COLD_PROTECTION_FORECAST_SENSOR),
             self.config.get(CONF_RESIDENT_SENSOR),
             self.cover,
         ]
@@ -499,13 +497,6 @@ class ShutterController:
                 )
             return
 
-        if self._auto_enabled(CONF_AUTO_COLD) and self._cold_protection_needed(sun_elevation):
-            await self._set_position(
-                self._position_value(CONF_CLOSE_POSITION, DEFAULT_CLOSE_POSITION),
-                "cold_protection",
-            )
-            return
-
         if self._auto_enabled(CONF_AUTO_SHADING) and not self._manual_blocks_action("shading"):
             shading_active = self._reason in {"shading", "manual_shading"}
             shading_allowed = self._shading_conditions(
@@ -543,43 +534,96 @@ class ShutterController:
                 )
                 return
         
+        close_events: list[tuple[datetime, str, float | None]] = []
+        open_events: list[tuple[datetime, str, float | None]] = []
+
         if self._auto_enabled(CONF_AUTO_SUN) and self._sun_allows_close(sun_elevation):
-            if self._brightness_allows_close(brightness):
-                if not self._manual_blocks_action("close"):
-                    await self._set_position(
+            close_events.append(
+                (
+                    now,
+                    "sun_close",
+                    self._position_value(CONF_CLOSE_POSITION, DEFAULT_CLOSE_POSITION),
+                )
+            )
+        if(self._auto_enabled(CONF_AUTO_BRIGHTNESS) 
+            and brightness is not None 
+            and self._brightness_allows_close(brightness)
+            ):
+                close_events.append(
+                    (
+                        now,
+                        "brightness_close",
                         self._position_value(CONF_CLOSE_POSITION, DEFAULT_CLOSE_POSITION),
-                        "sun_close",
                     )
-                    return
-
-        time_window_open = self._within_open_close_window(now)
-        sun_open_enabled = self._auto_enabled(CONF_AUTO_SUN)
-        sun_allows_open = sun_open_enabled and self._sun_allows_open(sun_elevation)
-
-        if self._auto_enabled(CONF_AUTO_UP) and (up_due or time_window_open or sun_allows_open):
-            brightness_allows_open = self._brightness_allows_open(brightness)
-            if brightness_allows_open and (sun_allows_open or not sun_open_enabled):
-                if not self._manual_blocks_action("open"):
-                    await self._set_position(
-                        self._position_value(CONF_OPEN_POSITION, DEFAULT_OPEN_POSITION),
-                        "scheduled_open",
-                    )
-                    return
-            self._next_open = now + timedelta(minutes=1)
-            self._publish_state()
-            return
+                )
 
         if self._auto_enabled(CONF_AUTO_DOWN) and down_due:
-            if self._sun_allows_close(sun_elevation) and self._brightness_allows_close(brightness):
+            close_events.append(
+                (
+                    self._next_close or now,
+                    "scheduled_close",
+                    self._position_value(CONF_CLOSE_POSITION, DEFAULT_CLOSE_POSITION),
+                )
+            )
+
+        if self._auto_enabled(CONF_AUTO_SUN) and self._sun_allows_open(sun_elevation):
+            open_events.append(
+                (
+                    now,
+                    "sun_open",
+                    self._position_value(CONF_OPEN_POSITION, DEFAULT_OPEN_POSITION),
+                )
+            )
+
+        if (
+            self._auto_enabled(CONF_AUTO_BRIGHTNESS)
+            and brightness is not None
+            and self._brightness_allows_open(brightness)
+        ):
+            open_events.append(
+                (
+                    now,
+                    "brightness_open",
+                    self._position_value(CONF_OPEN_POSITION, DEFAULT_OPEN_POSITION),
+                )
+            )
+
+        time_window_open = self._within_open_close_window(now)
+
+        if self._auto_enabled(CONF_AUTO_UP) and (up_due or time_window_open):
+            open_events.append(
+                (
+                    self._next_open or now,
+                    "scheduled_open",
+                    self._position_value(CONF_OPEN_POSITION, DEFAULT_OPEN_POSITION),
+                )
+            )
+
+        def _pick_event(
+            candidates: list[tuple[datetime, str, float | None]]
+        ) -> tuple[datetime, str, float | None] | None:
+            if not candidates:
+                return None
+            return sorted(candidates, key=lambda item: item[0])[0]
+
+        next_close = _pick_event(close_events)
+        next_open = _pick_event(open_events)
+
+        selected: tuple[datetime, str, float | None] | None = None
+        if next_close and next_open:
+            selected = next_close if next_close[0] <= next_open[0] else next_open
+        else:
+            selected = next_close or next_open
+
+        if selected:
+            _, reason, position = selected
+            if "close" in reason:
                 if not self._manual_blocks_action("close"):
-                    await self._set_position(
-                        self._position_value(CONF_CLOSE_POSITION, DEFAULT_CLOSE_POSITION),
-                        "scheduled_close",
-                    )
+                    await self._set_position(position, reason)
                     return
-            self._next_close = now + timedelta(minutes=1)
-            self._publish_state()
-            return
+            elif not self._manual_blocks_action("open"):
+                await self._set_position(position, reason)
+                return
 
         self._refresh_next_events(now)
         self._publish_state()
@@ -608,58 +652,14 @@ class ShutterController:
             return True
         return brightness <= float(self.config.get(CONF_BRIGHTNESS_CLOSE_BELOW))
 
-    def _cold_protection_needed(self, sun_elevation: float | None) -> bool:
-        if sun_elevation is not None and sun_elevation > 0:
-            return False
-        threshold = self._cold_threshold()
-        if threshold is None:
-            return False
-        outdoor = _float_state(self.hass, self.config.get(CONF_TEMPERATURE_SENSOR_OUTDOOR))
-        if outdoor is not None and outdoor <= threshold:
-            return True
-        forecast = self._cold_forecast_temperature()
-        if forecast is not None and forecast <= threshold:
-            return True
-        return False
-
-    def _cold_threshold(self) -> float | None:
-        value = self.config.get(CONF_COLD_PROTECTION_THRESHOLD)
-        if value is None:
-            return None
-        try:
-            return float(value)
-        except (TypeError, ValueError):
-            return None
-
-    def _cold_forecast_temperature(self) -> float | None:
-        entity_id = self.config.get(CONF_COLD_PROTECTION_FORECAST_SENSOR)
-        if not entity_id:
-            return None
-        state = self.hass.states.get(entity_id)
-        if state is None:
-            return None
-        domain = state.entity_id.split(".")[0]
-        if domain == "weather":
-            forecast = state.attributes.get("forecast")
-            if isinstance(forecast, list) and forecast:
-                entry = forecast[0] or {}
-                for key in ("templow", "temperature"):
-                    try:
-                        return float(entry.get(key))
-                    except (TypeError, ValueError):
-                        continue
-            try:
-                return float(state.attributes.get("temperature"))
-            except (TypeError, ValueError):
-                return None
-        return _float_state(self.hass, entity_id)
-
     def _shading_conditions(
         self, sun_azimuth: float | None, sun_elevation: float | None, brightness: float | None
     ) -> bool:
         if sun_azimuth is None or sun_elevation is None:
             return False
         if brightness is None:
+            return False
+        if not self._weather_allows_shading():
             return False
         az_start = float(self.config.get(CONF_SUN_AZIMUTH_START))
         az_end = float(self.config.get(CONF_SUN_AZIMUTH_END))
@@ -692,6 +692,36 @@ class ShutterController:
         if outdoor is not None and outdoor >= threshold:
             return True
         return forecast_hot
+
+    def _weather_allows_shading(self) -> bool:
+        weather_entity = self.config.get(CONF_SHADING_FORECAST_SENSOR)
+        conditions: list[str] = self.config.get(CONF_SHADING_WEATHER_CONDITIONS) or []
+        if not weather_entity or not conditions:
+            return True
+
+        state = self.hass.states.get(weather_entity)
+        if state is None:
+            return False
+
+        if state.entity_id.split(".")[0] != "weather":
+            return False
+
+        forecast_type = self.config.get(
+            CONF_SHADING_FORECAST_TYPE, DEFAULT_SHADING_FORECAST_TYPE
+        )
+        condition_value: str | None = None
+
+        if forecast_type == "weather_attributes" or forecast_type is None:
+            condition_value = state.state
+        else:
+            forecast = state.attributes.get("forecast")
+            if isinstance(forecast, list) and forecast:
+                entry = forecast[0] or {}
+                value = entry.get("condition")
+                if isinstance(value, str):
+                    condition_value = value
+
+        return condition_value in conditions
 
     def _is_workday(self) -> bool:
         workday_entity = self.config.get(CONF_WORKDAY_SENSOR)
@@ -784,7 +814,10 @@ class ShutterController:
             self._position_value(CONF_POSITION_TOLERANCE, DEFAULT_TOLERANCE)
         )
         current = self._current_position()
-        if current is not None and abs(current - float(position)) <= tolerance and self._reason == reason:
+        if current is not None and abs(current - float(position)) <= tolerance:
+            if self._reason is None:
+                self._reason = reason
+                self._publish_state()
             return
         await self.hass.services.async_call(
             "cover",
@@ -829,7 +862,7 @@ class ShutterController:
         workday = self._is_workday()
         next_up = self._next_time_for_point(self._time_setting(workday, True), now)
         next_down = self._next_time_for_point(self._time_setting(workday, False), now)
-        if not sun_enabled:
+        if self._auto_enabled(CONF_AUTO_UP) and next_up:
             if self._auto_enabled(CONF_AUTO_UP) and next_up:
                 candidates_open.append(next_up)
             if self._auto_enabled(CONF_AUTO_DOWN) and next_down:
@@ -840,11 +873,11 @@ class ShutterController:
         # Ensure timestamp sensors have a concrete value even if dispatcher
         # events have not yet run or if an automation toggle briefly disabled
         # schedule collection.
-        if not sun_enabled and self._next_open is None:
+        if self._next_open is None:
             fallback_open = self._next_time_for_point(self._time_setting(workday, True), now)
             if fallback_open:
                 self._next_open = fallback_open
-        if not sun_enabled and self._next_close is None:
+        if self._next_close is None:
             fallback_close = self._next_time_for_point(self._time_setting(workday, False), now)
             if fallback_close:
                 self._next_close = fallback_close
