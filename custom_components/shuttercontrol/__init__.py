@@ -7,16 +7,48 @@ from homeassistant.const import ATTR_ENTITY_ID
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import config_validation as cv
+from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.typing import ConfigType
 import voluptuous as vol
 
 from .config_entities import ensure_config_entities
 from .const import (
+    CONF_AUTO_BRIGHTNESS,
+    CONF_AUTO_DOWN,
+    CONF_AUTO_SHADING,
+    CONF_AUTO_SUN,
+    CONF_AUTO_UP,
+    CONF_AUTO_VENTILATE,
+    CONF_BRIGHTNESS_CLOSE_BELOW,
+    CONF_BRIGHTNESS_OPEN_ABOVE,
+    CONF_BRIGHTNESS_SENSOR,
     CONF_COVERS,
+    CONF_CLOSE_POSITION,
+    CONF_EXPOSE_SWITCH_SETTINGS,
     CONF_FULL_OPEN_POSITION,
+    CONF_OPEN_POSITION,
+    CONF_POSITION_TOLERANCE,
     CONF_MANUAL_OVERRIDE_MINUTES,
     DEFAULT_MANUAL_OVERRIDE_MINUTES,
     DEFAULT_OPEN_POSITION,
+    CONF_SHADING_BRIGHTNESS_END,
+    CONF_SHADING_BRIGHTNESS_START,
+    CONF_SHADING_POSITION,
+    CONF_SUN_AZIMUTH_END,
+    CONF_SUN_AZIMUTH_START,
+    CONF_SUN_ELEVATION_CLOSE,
+    CONF_SUN_ELEVATION_MAX,
+    CONF_SUN_ELEVATION_MIN,
+    CONF_SUN_ELEVATION_OPEN,
+    CONF_TIME_DOWN_EARLY_NON_WORKDAY,
+    CONF_TIME_DOWN_EARLY_WORKDAY,
+    CONF_TIME_DOWN_LATE_NON_WORKDAY,
+    CONF_TIME_DOWN_LATE_WORKDAY,
+    CONF_TIME_UP_EARLY_NON_WORKDAY,
+    CONF_TIME_UP_EARLY_WORKDAY,
+    CONF_TIME_UP_LATE_NON_WORKDAY,
+    CONF_TIME_UP_LATE_WORKDAY,
+    CONF_VENTILATE_POSITION,
     DOMAIN,
     PLATFORMS,
 )
@@ -26,7 +58,7 @@ SERVICE_MANUAL_OVERRIDE = "set_manual_override"
 SERVICE_ACTIVATE_SHADING = "activate_shading"
 SERVICE_CLEAR_MANUAL_OVERRIDE = "clear_manual_override"
 SERVICE_RECALIBRATE = "recalibrate_cover"
-
+SERVICE_CHANGE_SWITCH_SETTINGS = "change_switch_settings"
 
 async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     """Initialize integration-level storage and services."""
@@ -123,6 +155,89 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
                 vol.Optional(CONF_FULL_OPEN_POSITION, default=DEFAULT_OPEN_POSITION): vol.All(
                     vol.Coerce(float), vol.Range(min=0, max=100)
                 ),
+                }
+            ),
+        )
+    if SERVICE_CHANGE_SWITCH_SETTINGS not in hass.services.async_services_for_domain(DOMAIN):
+        time_keys = {
+            CONF_TIME_UP_EARLY_WORKDAY,
+            CONF_TIME_UP_LATE_WORKDAY,
+            CONF_TIME_DOWN_EARLY_WORKDAY,
+            CONF_TIME_DOWN_LATE_WORKDAY,
+            CONF_TIME_UP_EARLY_NON_WORKDAY,
+            CONF_TIME_UP_LATE_NON_WORKDAY,
+            CONF_TIME_DOWN_EARLY_NON_WORKDAY,
+            CONF_TIME_DOWN_LATE_NON_WORKDAY,
+        }
+
+        switch_settings = {
+            CONF_AUTO_UP: time_keys,
+            CONF_AUTO_DOWN: time_keys,
+            CONF_AUTO_VENTILATE: {
+                CONF_VENTILATE_POSITION,
+                CONF_POSITION_TOLERANCE,
+            },
+            CONF_AUTO_SHADING: {
+                CONF_SHADING_POSITION,
+                CONF_SHADING_BRIGHTNESS_START,
+                CONF_SHADING_BRIGHTNESS_END,
+                CONF_SUN_AZIMUTH_START,
+                CONF_SUN_AZIMUTH_END,
+                CONF_SUN_ELEVATION_MIN,
+                CONF_SUN_ELEVATION_MAX,
+            },
+            CONF_AUTO_BRIGHTNESS: {
+                CONF_BRIGHTNESS_SENSOR,
+                CONF_BRIGHTNESS_OPEN_ABOVE,
+                CONF_BRIGHTNESS_CLOSE_BELOW,
+            },
+            CONF_AUTO_SUN: {
+                CONF_SUN_ELEVATION_OPEN,
+                CONF_SUN_ELEVATION_CLOSE,
+                CONF_SUN_AZIMUTH_START,
+                CONF_SUN_AZIMUTH_END,
+            },
+        }
+
+        async def handle_change_switch_settings(call):
+            entity_id = call.data.get(ATTR_ENTITY_ID)
+            settings = call.data.get("settings")
+            if not isinstance(settings, dict):
+                raise ValueError("settings must be a mapping")
+
+            registry = er.async_get(hass)
+            entity = registry.async_get(entity_id)
+            if not entity or entity.platform != DOMAIN:
+                raise ValueError(f"No shuttercontrol switch found for {entity_id}")
+
+            entry = hass.config_entries.async_get_entry(entity.config_entry_id)
+            if not entry:
+                raise ValueError(f"No config entry found for {entity_id}")
+
+            key = None
+            if entity.unique_id and entry.entry_id in entity.unique_id:
+                parts = entity.unique_id.split(f"{entry.entry_id}-", 1)
+                if len(parts) == 2:
+                    key = parts[1]
+            allowed = switch_settings.get(key)
+            if not allowed:
+                raise ValueError(f"Switch {entity_id} does not support editable settings")
+
+            filtered = {k: v for k, v in settings.items() if k in allowed}
+            if not filtered:
+                raise ValueError("No valid settings provided for this switch")
+
+            options = {**entry.options, **filtered}
+            hass.config_entries.async_update_entry(entry, options=options)
+
+        hass.services.async_register(
+            DOMAIN,
+            SERVICE_CHANGE_SWITCH_SETTINGS,
+            handle_change_switch_settings,
+            schema=vol.Schema(
+                {
+                    vol.Required(ATTR_ENTITY_ID): cv.entity_id,
+                    vol.Required("settings"): dict,
                 }
             ),
         )
