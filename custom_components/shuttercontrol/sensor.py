@@ -28,7 +28,6 @@ REASON_LABELS = {
     "scheduled_open": "open (time)",
     "ventilation": "ventilation",
     "resident_asleep": "resident",
-    "cold_protection": "cold",
     IDLE_REASON: "idle",
 }
 
