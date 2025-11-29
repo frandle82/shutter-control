@@ -9,7 +9,6 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .const import (
     CONF_AUTO_BRIGHTNESS,
-    CONF_AUTO_COLD,
     CONF_AUTO_DOWN,
     CONF_AUTO_SHADING,
     CONF_AUTO_SUN,
@@ -30,7 +29,6 @@ AUTOMATION_TOGGLES: tuple[tuple[str, str], ...] = (
     (CONF_AUTO_SUN, "auto_sun"),
     (CONF_AUTO_VENTILATE, "auto_ventilate"),
     (CONF_AUTO_SHADING, "auto_shading"),
-    (CONF_AUTO_COLD, "auto_cold"),
 )
 
 TOGGLE_ICONS: dict[str, str] = {
@@ -40,7 +38,6 @@ TOGGLE_ICONS: dict[str, str] = {
     CONF_AUTO_SUN: "mdi:weather-sunny",
     CONF_AUTO_VENTILATE: "mdi:fan-auto",
     CONF_AUTO_SHADING: "mdi:theme-light-dark",
-    CONF_AUTO_COLD: "mdi:snowflake-variant",
 }
 
 async def async_setup_entry(
