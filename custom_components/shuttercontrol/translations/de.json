@@ -209,7 +209,7 @@
       },
     "recalibrate_cover": {
       "name": "Abdeckung neu kalibrieren",
-      "description": "Setzt einen manuellen Override, öffnet die Abdeckung vollständig, stellt danach die vorherige Position wieder her und hebt den Override wieder auf. Hilfreich, wenn eine Abdeckung werden muss.",
+      "description": "Setzt einen manuellen Override, nutzt den Standardbefehl zum Öffnen für eine vollständig geöffnete Abdeckung, stellt danach die vorherige Position wieder her und hebt den Override wieder auf. Hilfreich, wenn eine Abdeckung neu ausgerichtet werden muss.",
       "fields": {
         "covers": {
           "name": "Cover",
