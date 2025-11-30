@@ -250,24 +250,16 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     for entity_entry in list(registry.entities.values()):
         if entity_entry.config_entry_id != entry.entry_id:
             continue
-        if entity_entry.domain in ("number", "text", "time"):
+        if entity_entry.domain in {"number", "text", "time"}:
             registry.async_remove(entity_entry.entity_id)
     
     manager = ControllerManager(hass, entry)
     await manager.async_setup()
     hass.data[DOMAIN][entry.entry_id] = manager
 
-    forward_setups = getattr(hass.config_entries, "async_forward_entry_setups", None)
-    if forward_setups:
-        setup_ok = await forward_setups(entry, PLATFORMS)
-    else:
-        setup_results = [
-            await hass.config_entries.async_forward_entry_setup(entry, platform)
-            for platform in PLATFORMS
-        ]
-        setup_ok = all(setup_results)
+    await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     entry.async_on_unload(entry.add_update_listener(_handle_options_update))
-    return bool(setup_ok if setup_ok is not None else True)
+    return True
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
