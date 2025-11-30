@@ -57,10 +57,14 @@ from .const import (
     CONF_TEMPERATURE_SENSOR_INDOOR,
     CONF_TEMPERATURE_SENSOR_OUTDOOR,
     CONF_TEMPERATURE_THRESHOLD,
-    CONF_TIME_DOWN_NON_WORKDAY,
-    CONF_TIME_DOWN_WORKDAY,
-    CONF_TIME_UP_NON_WORKDAY,
-    CONF_TIME_UP_WORKDAY,
+    CONF_TIME_DOWN_EARLY_NON_WORKDAY,
+    CONF_TIME_DOWN_EARLY_WORKDAY,
+    CONF_TIME_DOWN_LATE_NON_WORKDAY,
+    CONF_TIME_DOWN_LATE_WORKDAY,
+    CONF_TIME_UP_EARLY_NON_WORKDAY,
+    CONF_TIME_UP_EARLY_WORKDAY,
+    CONF_TIME_UP_LATE_NON_WORKDAY,
+    CONF_TIME_UP_LATE_WORKDAY,
     CONF_VENTILATE_POSITION,
     CONF_WINDOW_SENSORS,
     CONF_WORKDAY_SENSOR,
@@ -68,10 +72,16 @@ from .const import (
     DEFAULT_MANUAL_OVERRIDE_MINUTES,
     DEFAULT_MANUAL_OVERRIDE_FLAGS,
     DEFAULT_MANUAL_OVERRIDE_RESET_TIME,
-    DEFAULT_TIME_DOWN_NON_WORKDAY,
-    DEFAULT_TIME_DOWN_WORKDAY,
-    DEFAULT_TIME_UP_NON_WORKDAY,
-    DEFAULT_TIME_UP_WORKDAY,
+    DEFAULT_POSITION_SETTINGS,
+    DEFAULT_TIME_SETTINGS,
+    DEFAULT_TIME_DOWN_LATE_NON_WORKDAY,
+    DEFAULT_TIME_DOWN_EARLY_NON_WORKDAY,
+    DEFAULT_TIME_DOWN_EARLY_WORKDAY,
+    DEFAULT_TIME_DOWN_LATE_WORKDAY,
+    DEFAULT_TIME_UP_EARLY_NON_WORKDAY,
+    DEFAULT_TIME_UP_LATE_NON_WORKDAY,
+    DEFAULT_TIME_UP_LATE_WORKDAY,
+    DEFAULT_TIME_UP_EARLY_WORKDAY,
     DEFAULT_OPEN_POSITION,
     DEFAULT_TOLERANCE,
     DEFAULT_VENTILATE_POSITION,
@@ -123,6 +133,8 @@ class ControllerManager:
 
     async def async_setup(self) -> None:
         data = {
+            **DEFAULT_POSITION_SETTINGS,
+            **DEFAULT_TIME_SETTINGS,
             **DEFAULT_AUTOMATION_FLAGS,
             **DEFAULT_MANUAL_OVERRIDE_FLAGS,
             **self.entry.data,
@@ -141,6 +153,8 @@ class ControllerManager:
     @callback
     def async_update_options(self) -> None:
         new_data = {
+            **DEFAULT_POSITION_SETTINGS,
+            **DEFAULT_TIME_SETTINGS,
             **DEFAULT_AUTOMATION_FLAGS,
             **DEFAULT_MANUAL_OVERRIDE_FLAGS,
             **self.entry.data,
@@ -741,43 +755,48 @@ class ShutterController:
             return False
         return self.hass.states.is_state(resident_entity, STATE_ON)
 
-    def _time_setting(self, workday: bool, is_up: bool) -> time | None:
-        if workday:
-            value_key = CONF_TIME_UP_WORKDAY if is_up else CONF_TIME_DOWN_WORKDAY
-            fallback = DEFAULT_TIME_UP_WORKDAY if is_up else DEFAULT_TIME_DOWN_WORKDAY
-        else:
-            value_key = CONF_TIME_UP_NON_WORKDAY if is_up else CONF_TIME_DOWN_NON_WORKDAY
-            fallback = (
-                DEFAULT_TIME_UP_NON_WORKDAY if is_up else DEFAULT_TIME_DOWN_NON_WORKDAY
-            )
-
-        parsed = _parse_time(self.config.get(value_key))
+    def _time_from_config(self, key: str) -> time | None:
+        configured = self.config.get(key)
+        parsed = _parse_time(configured)
         if parsed:
             return parsed
-        return _parse_time(fallback)
+        fallback = DEFAULT_TIME_SETTINGS.get(key)
+        return _parse_time(fallback) if fallback is not None else None
+    
+    def _time_bounds(self, workday: bool, is_up: bool) -> tuple[time | None, time | None]:
+        if workday:
+            early_key = (CONF_TIME_UP_EARLY_WORKDAY if is_up else CONF_TIME_DOWN_EARLY_WORKDAY)
+            late_key = (CONF_TIME_UP_LATE_WORKDAY if is_up else CONF_TIME_DOWN_LATE_WORKDAY)
+        else:
+            early_key = (CONF_TIME_UP_EARLY_NON_WORKDAY if is_up else CONF_TIME_DOWN_EARLY_NON_WORKDAY)
+            late_key = (CONF_TIME_UP_LATE_NON_WORKDAY if is_up else CONF_TIME_DOWN_LATE_NON_WORKDAY)        
 
-    def _within_open_close_window(self, now: datetime) -> bool:
-        workday = self._is_workday()
-        open_time = self._time_setting(workday, True)
-        close_time = self._time_setting(workday, False)
-        if not open_time or not close_time:
+        return self._time_from_config(early_key), self._time_from_config(late_key)
+
+    def _within_time_window(
+        self, now: datetime, start: time | None, end: time | None
+    ) -> bool:
+        if not start or not end:
             return False
 
         local_now = dt_util.as_local(now)
 
-        def _window_for(date_value) -> tuple[datetime, datetime]:
-            start = datetime.combine(date_value, open_time, local_now.tzinfo)
-            end = datetime.combine(date_value, close_time, local_now.tzinfo)
-            if end <= start:
-                end = end + timedelta(days=1)
-            return start, end
+        start_dt = datetime.combine(local_now.date(), start, local_now.tzinfo)
+        end_dt = datetime.combine(local_now.date(), end, local_now.tzinfo)
+        if end_dt <= start_dt:
+            end_dt = end_dt + timedelta(days=1)
 
         for offset in (0, -1):
-            start, end = _window_for(local_now.date() + timedelta(days=offset))
-            if start <= local_now < end:
+            window_start = start_dt + timedelta(days=offset)
+            window_end = end_dt + timedelta(days=offset)
+            if window_start <= local_now < window_end:
                 return True
         return False
 
+    def _within_open_close_window(self, now: datetime) -> bool:
+        workday = self._is_workday()
+        early, late = self._time_bounds(workday, True)
+        return self._within_time_window(now, early, late)
 
     def _event_due(self, target: datetime | None, now: datetime) -> bool:
         if not target:
@@ -860,13 +879,20 @@ class ShutterController:
             if next_setting:
                 candidates_close.append(next_setting)
         workday = self._is_workday()
-        next_up = self._next_time_for_point(self._time_setting(workday, True), now)
-        next_down = self._next_time_for_point(self._time_setting(workday, False), now)
-        if self._auto_enabled(CONF_AUTO_UP) and next_up:
-            if self._auto_enabled(CONF_AUTO_UP) and next_up:
-                candidates_open.append(next_up)
-            if self._auto_enabled(CONF_AUTO_DOWN) and next_down:
-                candidates_close.append(next_down)
+        up_early, up_late = self._time_bounds(workday, True)
+        down_early, down_late = self._time_bounds(workday, False)
+        next_up_points = [
+            self._next_time_for_point(up_early, now),
+            self._next_time_for_point(up_late, now),
+        ]
+        next_down_points = [
+            self._next_time_for_point(down_early, now),
+            self._next_time_for_point(down_late, now),
+        ]
+        if self._auto_enabled(CONF_AUTO_UP):
+            candidates_open.extend([point for point in next_up_points if point])
+        if self._auto_enabled(CONF_AUTO_DOWN):
+            candidates_open.extend([point for point in next_down_points if point])
         self._next_open = min(candidates_open) if candidates_open else None
         self._next_close = min(candidates_close) if candidates_close else None
 
@@ -874,13 +900,15 @@ class ShutterController:
         # events have not yet run or if an automation toggle briefly disabled
         # schedule collection.
         if self._next_open is None:
-            fallback_open = self._next_time_for_point(self._time_setting(workday, True), now)
-            if fallback_open:
-                self._next_open = fallback_open
+            for point in next_up_points:
+                if point:
+                    self._next_open = point
+                    break
         if self._next_close is None:
-            fallback_close = self._next_time_for_point(self._time_setting(workday, False), now)
-            if fallback_close:
-                self._next_close = fallback_close
+            for point in next_down_points:
+                if point:
+                    self._next_close = point
+                    break
         
     def _parse_datetime_attr(self, value: datetime | str | None) -> datetime | None:
         if isinstance(value, datetime):
