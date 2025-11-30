@@ -8,9 +8,7 @@ CONF_NAME = "name"
 DEFAULT_NAME = "Cover Control"
 PLATFORMS: list[Platform] = [
         Platform.SENSOR,
-        Platform.NUMBER,
-        Platform.TIME,
-        Platform.SWITCH
+        Platform.SWITCH,
     ]
 
 CONF_COVERS = "covers"
