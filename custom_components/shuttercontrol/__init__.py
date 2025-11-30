@@ -11,7 +11,6 @@ from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.typing import ConfigType
 import voluptuous as vol
 
-from .config_entities import ensure_config_entities
 from .const import (
     CONF_AUTO_BRIGHTNESS,
     CONF_AUTO_DOWN,
@@ -247,22 +246,28 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Load a config entry."""
-    await ensure_config_entities(hass, entry.entry_id, {**entry.data, **entry.options})
-    created_entities = await ensure_config_entities(
-        hass, entry.entry_id, {**entry.data, **entry.options}
-    )
-    if created_entities:
-        hass.config_entries.async_update_entry(
-            entry, options={**entry.options, **created_entities}
-        )
-
+    registry = er.async_get(hass)
+    for entity_entry in list(registry.entities.values()):
+        if entity_entry.config_entry_id != entry.entry_id:
+            continue
+        if entity_entry.domain in ("number", "text", "time"):
+            registry.async_remove(entity_entry.entity_id)
+    
     manager = ControllerManager(hass, entry)
     await manager.async_setup()
     hass.data[DOMAIN][entry.entry_id] = manager
 
-    await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+    forward_setups = getattr(hass.config_entries, "async_forward_entry_setups", None)
+    if forward_setups:
+        setup_ok = await forward_setups(entry, PLATFORMS)
+    else:
+        setup_results = [
+            await hass.config_entries.async_forward_entry_setup(entry, platform)
+            for platform in PLATFORMS
+        ]
+        setup_ok = all(setup_results)
     entry.async_on_unload(entry.add_update_listener(_handle_options_update))
-    return True
+    return bool(setup_ok if setup_ok is not None else True)
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
